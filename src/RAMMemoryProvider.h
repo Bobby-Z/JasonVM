@@ -29,6 +29,7 @@ namespace jason
 			unsigned long write(byte& buff, unsigned long off, unsigned long len);
 		private:
 			byte * memory;
+			byte * stack;
 			byte * reserved;
 			pointer length;
 			pointer currentPointer;

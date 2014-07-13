@@ -12,13 +12,21 @@ namespace jason
 
 	RAMMemoryProvider::RAMMemoryProvider(pointer size) : MemoryProvider()
 	{
+		size &= 0x3FFFFFFFFFFFFFFF;
 		reserved = new byte[8192];
 		currentPointer = 0;
 		length = size;
 		memory = new byte[size];
-		for (pointer i = 0; i < size; i++)
-			memory[i] = 0xf8;
-		printf("Created an array of %i bytes", size);
+		stack = new byte[1048576]; //The stack
+		//The empty variable
+		memory[0] = (byte) ((size >> 56) & 0x3F);
+		memory[1] = (byte) ((size >> 48) & 0xFF);
+		memory[2] = (byte) ((size >> 40) & 0xFF);
+		memory[3] = (byte) ((size >> 32) & 0xFF);
+		memory[4] = (byte) ((size >> 24) & 0xFF);
+		memory[5] = (byte) ((size >> 16) & 0xFF);
+		memory[6] = (byte) ((size >> 8) & 0xFF);
+		memory[7] = (byte) ((size) & 0xFF);
 	}
 
 	RAMMemoryProvider::~RAMMemoryProvider()

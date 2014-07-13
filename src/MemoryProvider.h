@@ -41,7 +41,11 @@ namespace jason
 			void writeUTF8(std::string str);
 			std::string readUTF16();
 			void writeUTF16(std::string str);
+
+			pointer createVariable(pointer size);
+			void deleteVariable(pointer p);
 		private:
+			byte gc = 0;
 			byte buff[8];
 	};
 

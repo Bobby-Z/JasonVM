@@ -5,6 +5,7 @@
  *      Author: Bobby-Z (Robert L. Svarinskis)
  */
 
+#include <iostream>
 #include "FileMemoryProvider.h"
 
 namespace jason
@@ -16,6 +17,16 @@ namespace jason
 		if (!file.is_open())
 		{
 			std::cerr << "Could not open RAM file!\n";
+		} else
+		{
+			//file.write((byte) ((size >> 56) & 0x3F));
+			//memory[1] = (byte) ((size >> 48) & 0xFF);
+			//memory[2] = (byte) ((size >> 40) & 0xFF);
+			//memory[3] = (byte) ((size >> 32) & 0xFF);
+			//memory[4] = (byte) ((size >> 24) & 0xFF);
+			//memory[5] = (byte) ((size >> 16) & 0xFF);
+			//memory[6] = (byte) ((size >> 8) & 0xFF);
+			//memory[7] = (byte) ((size) & 0xFF);
 		}
 	}
 

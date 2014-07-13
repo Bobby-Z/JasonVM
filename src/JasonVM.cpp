@@ -13,7 +13,7 @@
 
 #include "RAMMemoryProvider.h"
 #include "FileMemoryProvider.h"
-#include <ifstream>
+#include <fstream>
 
 namespace jason
 {
@@ -129,6 +129,159 @@ namespace jason
 
 	MemoryProvider * RAM;
 
+	void LoadScript(const char * file, const char * includedFrom, const unsigned long long * argumentPointers);
+	void ParseHeader(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column);
+	void ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column);
+	void ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column);
+
+	void
+	LoadScript(const char * file, const char * includedFrom, const unsigned long long * argumentPointers)
+	{
+		std::string * str = new std::string("");
+		std::ifstream * i = new std::ifstream(file);
+		if (i->is_open())
+		{
+			std::string line;
+			while (i->good())
+			{
+				getline(*i, line);
+				str->append(line);
+				str->append("\n");
+			}
+			i->close();
+			unsigned long int * p = new unsigned long int(0);
+			unsigned int * line_num = new unsigned int(1);
+			unsigned int * column = new unsigned int(0);
+			ParseHeader(p, *str, line_num, column);
+			ParseVariable(p, *str, line_num, column);
+		} else
+			printf("Could not open file %s included from %s\n", file, includedFrom);
+		i->close();
+		delete str;
+		delete i;
+	}
+
+	void
+	ParseHeader(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string includeloc)
+	{
+		while (*p < str.length())
+		{
+			char c = str.data()[*p++];
+			*column++;
+			if (c == ' ' || c == '	')
+				continue;
+			else if (c == '\n')
+			{
+				*line++;
+				*column = 0;
+				continue;
+			} else if (c == '#')
+			{
+				std::string * hashtype = new std::string("");
+				while (*p < str.length())
+				{
+					char c2 = str.data()[*p++];
+					*column++;
+					if (c == ' ' || c == '	')
+						break;
+					else if (c == '\n')
+					{
+						*column = 0;
+						*line++;
+						break;
+					} else if (c == '<' || c == '"')
+					{
+						*column--;
+						*p--;
+						break;
+					}
+					hashtype->append(&c2);
+				}
+				if (*hashtype == std::string("include"))
+				{
+					char closingType = ' ';
+					std::string * includefile = new std::string("");
+					while (*p < str.length())
+					{
+						char c2 = str.data()[*p++];
+						*column++;
+						if ((c2 == ' ' || c2 == '	') && closingType != ' ')
+							continue;
+						else if (c2 == '\n' && closingType != ' ')
+						{
+							*column = 0;
+							*line++;
+							continue;
+						} else if (c2 == '<' && closingType == ' ')
+							closingType = '>';
+						else if (c2 == '"' && closingType == ' ')
+							closingType = '"';
+						else if (c2 == closingType && closingType != ' ')
+							break;
+						else
+							includefile->append(&c2);
+					}
+					//LoadScript(includefile->data());
+					delete includefile;
+				} else
+					printf("Note: unknown token '#%s' at line %i column %i\n", hashtype->data(), *line, *column - hashtype->length() - 1);
+				delete hashtype;
+			} else if (c == '{')
+			{
+				*p--;
+				*column--;
+				return;
+			} else
+				printf("Note: invalid token '%c' at line %i column %i\n", c, *line, *column);
+		}
+	}
+
+	void
+	ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column)
+	{
+		std::string variablename = new std::string("");
+		unsigned char varmask = 0;
+		while (*p < str.length())
+		{
+			char c = str.data()[*p++];
+			*column++;
+			if (c == ' ' || c == '	')
+				continue;
+			else if (c == '\n')
+			{
+				*line++;
+				*column = 0;
+				continue;
+			} else if (c == '"')
+			{
+				while (*p < str.length())
+				{
+					char c2 = str.data()[*p++];
+					*column++;
+					if (c == '\n')
+					{
+						*line++;
+						*column = 0;
+						continue;
+					} else if (c == '"')
+					{
+
+					}
+				}
+			}
+		}// else if (c == '{')
+		{
+			*column--;
+			*p--;
+		}
+	}
+
+	void
+	ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column)
+	{
+
+	}
+
 	int
 	Run(MachineArgs arg)
 	{
@@ -141,36 +294,11 @@ namespace jason
 				RAM = new FileMemoryProvider(arg.memproviderargs.data());
 				break;
 		}
-		LoadScript("D:\\JasonVM\\kontakti\\library\\System.jll");
+		unsigned long long int args[5];
+		LoadScript("Library/System.jll", "JasonVM (Native program)", args);
 		for (int i = 0; i < 65536; i++)
-			std::cout << "File length:" << RAM->getLength() << std::endl;
+			printf("File length: %d\n", RAM->getLength());
 		return 0;
-	}
-
-	std::ifstream i;
-	std::string str;
-
-	void
-	LoadScript(char * file)
-	{
-		i.open(file);
-		if (i.is_open())
-		{
-			while (i.good())
-			{
-				getline(i, str);
-			}
-			i.close();
-		} else
-		{
-			std::cout << "Does System.jll exist?" << std::endl;
-		}
-	}
-
-	void
-	ParseVariable()
-	{
-
 	}
 }
 
