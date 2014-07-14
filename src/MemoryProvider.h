@@ -9,8 +9,9 @@
 #define MEMORYPROVIDER_H_
 
 typedef unsigned char byte;
-typedef unsigned long long pointer;
+typedef unsigned long long int pointer;
 typedef bool boolean;
+
 #include <string>
 
 namespace jason
@@ -19,7 +20,7 @@ namespace jason
 	class MemoryProvider
 	{
 		public:
-			MemoryProvider(){};
+			MemoryProvider(){gc = 0;};
 			virtual ~MemoryProvider() = 0;
 			virtual void seek(pointer p) = 0;
 			virtual pointer getPointer() = 0;
@@ -44,8 +45,10 @@ namespace jason
 
 			pointer createVariable(pointer size);
 			void deleteVariable(pointer p);
+			void GC();
 		private:
-			byte gc = 0;
+			byte gc;
+			void doGC(pointer loc);
 			byte buff[8];
 	};
 

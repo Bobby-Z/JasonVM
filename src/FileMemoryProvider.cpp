@@ -38,8 +38,8 @@ namespace jason
 	void
 	FileMemoryProvider::seek(pointer p)
 	{
-		file.seekg(p);
-		file.seekp(p);
+		file.seekg(p, std::ios::beg);
+		file.seekp(p, std::ios::beg);
 	}
 
 	pointer
@@ -51,13 +51,11 @@ namespace jason
 	pointer
 	FileMemoryProvider::getLength()
 	{
-		pointer * p = new pointer;
-		*p = file.tellg();
+		pointer p = file.tellg();
 		file.seekg(0, std::ios::end);
 		pointer len = file.tellg();
-		file.seekg(*p);
-		delete p;
-		return len;
+		file.seekg(p);
+		return len + 1;
 	}
 
 	boolean

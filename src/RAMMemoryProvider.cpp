@@ -32,6 +32,7 @@ namespace jason
 	RAMMemoryProvider::~RAMMemoryProvider()
 	{
 		delete[] memory;
+		delete[] stack;
 		delete[] reserved;
 	}
 

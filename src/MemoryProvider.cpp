@@ -150,4 +150,74 @@ namespace jason
 		writeUTF8(s);
 	}
 
+	pointer
+	MemoryProvider::createVariable(pointer size)
+	{
+		pointer b4 = getPointer();
+		while (getPointer() < getLength())
+		{
+			if (read() == 0)
+			{
+				seek(getPointer() - 1);
+				continue;
+			}
+			seek(getPointer() - 1);
+			pointer l = readLong();
+			if (l & 0xC000000000000000 != 0)
+			{
+				seek(getPointer() + (l & 0x3FFFFFFFFFFFFFFF));
+				continue;
+			}
+			if (l & 0x3FFFFFFFFFFFFFFF > size)
+			{
+				seek(getPointer() + (l & 0x3FFFFFFFFFFFFFFF));
+				continue;
+			}
+			pointer p = getPointer() - 1;
+			if (size < l)
+			{
+				seek(getPointer() + size);
+				byte * b = new byte[l - size];
+				write(*b, l - size);
+			}
+			seek(p);
+			writeLong(((pointer) gc << 56) | size);
+			return p;
+		}
+		seek(b4);
+		return getLength();
+	}
+
+	void
+	MemoryProvider::deleteVariable(pointer p)
+	{
+		pointer b4 = getPointer();
+		seek(p);
+		unsigned long long int length = readLong() & 0x3FFFFFFFFFFFFFFF;
+		seek(p);
+		writeLong(length);
+		seek(b4);
+	}
+
+	void
+	MemoryProvider::doGC(pointer loc)
+	{
+		gc += 0x40;
+		if (gc == 0)
+			gc = 0x40;
+		seek(loc);
+		while (getPointer() < getLength())
+		{
+			unsigned long long l = readLong();
+			//GC
+		}
+	}
+
+	void
+	MemoryProvider::GC()
+	{
+		pointer p = getPointer();
+		doGC(0);
+		seek(p);
+	}
 }

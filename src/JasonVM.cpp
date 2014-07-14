@@ -239,7 +239,7 @@ namespace jason
 	void
 	ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column)
 	{
-		std::string variablename = new std::string("");
+		std::string * variablename = new std::string("");
 		unsigned char varmask = 0;
 		while (*p < str.length())
 		{
