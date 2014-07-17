@@ -147,12 +147,12 @@ namespace jason
 	void LoadScript(const char * file, std::string * includedFrom);
 	void ParseHeader(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
 	void ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
-	void ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
+	pointer ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::stringstream * variablename);
 
 	void
 	LoadScript(const char * file, std::string * includedFrom)
 	{
-		std::string * str = new std::string("");
+		std::string * str = new std::string;
 		std::ifstream * i = new std::ifstream(file);
 		if (i->is_open())
 		{
@@ -160,48 +160,62 @@ namespace jason
 			while (i->good())
 			{
 				getline(*i, line);
-				str->append(line + "\n");
+				*str += line;
+				*str += "\n";
 			}
 			i->close();
+			delete i;
 			unsigned long int * p = new unsigned long int(0);
 			unsigned int * line_num = new unsigned int(1);
 			unsigned int * column = new unsigned int(0);
-			includedFrom = new std::string(file + "\n<[\\spaces/]>included from " + *includedFrom);
 
-			ParseHeader(p, *str, line_num, column, includedFrom);
-			ParseVariable(p, *str, line_num, column, includedFrom);
+			std::string * includedFromNew = new std::string("\"");
+			*includedFromNew += file;
+			*includedFromNew += "\"\n<[\\spaces/]>included from ";
+			*includedFromNew += includedFrom->data();
+
+			ParseHeader(p, *str, line_num, column, includedFromNew);
+			//ParseVariable(p, *str, line_num, column, includedFrom);
+
+			delete str;
 			delete p;
 			delete line_num;
 			delete column;
-			delete includedFrom;
+			delete includedFromNew;
 		} else
 		{
-			std::stringstream error = new std::stringstream;
-			std::string msg = new std::string;
-			error << "Warning: Could not open file '" << file << "' included from ";
-			error >> msg;
-			char * c = new char[msg.length()];
-			for (int i = 0; i < msg.length(); i++)
-				c[i] = ' ';
-			msg >> std::cout;
+			std::cout << std::endl;
+			std::string * msg = new std::string();
+			*msg = "Warning: Could not open file '";
+			*msg += file;
+			*msg += "' ";
+			std::cout << msg->data();
+			std::cout << "included from ";
+			char * c = new char[msg->length() + 1];
+			for (int charPos = 0; charPos < msg->length(); charPos++)
+				c[charPos] = ' ';
+			c[msg->length()] = 0;
 			std::string * includedFromFormatted = new std::string(*includedFrom);
-			replaceAllInString(*includedFromFormatted, std::string("<[\\spaces/]>"), std::string(c));
-			std::cout << includedFromFormatted << std::endl;
-			delete error;
+			replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+			std::cout << *includedFromFormatted << std::endl;
 			delete msg;
 			delete c;
 			delete includedFromFormatted;
+			delete i;
+			delete str;
 		}
-		i->close();
-		delete str;
-		delete i;
 	}
 
 	void
 	ParseHeader(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom)
 	{
-		while (*p < str.length())
+		bool skipErrors = false;
+		while (true)
 		{
+			if (*p >= str.length())
+			{
+				//TODO: compile error, abort
+			}
 			char c = str.data()[(*p)++];
 			(*column)++;
 			if (c == ' ' || c == '	')
@@ -209,43 +223,52 @@ namespace jason
 			else if (c == '\n')
 			{
 				(*line)++;
-				*column = 0;
+				(*column) = 0;
 				continue;
 			} else if (c == '#')
 			{
-				std::string * hashtype = new std::string;
-				while (*p < str.length())
+				skipErrors = false;
+				std::string * hashtype = new std::string();
+				while (true)
 				{
+					if (*p >= str.length())
+					{
+						//TODO Error, abort compilation
+					}
 					char c2 = str.data()[(*p)++];
 					(*column)++;
-					if (c == ' ' || c == '	')
+					if (c2 == ' ' || c2 == '	')
 						break;
-					else if (c == '\n')
+					else if (c2 == '\n')
 					{
-						*column = 0;
+						(*column) = 0;
 						(*line)++;
 						break;
-					} else if (c == '<' || c == '"')
+					} else if (c2 == '<' || c2 == '"')
 					{
 						(*column)--;
 						(*p)--;
 						break;
 					}
-					hashtype->append(c2 + "");
+					*hashtype += c2;
 				}
-				if (*hashtype == std::string("include"))
+				if (*hashtype == "include")
 				{
 					char closingType = ' ';
-					std::string * includefile = new std::string;
-					while (*p < str.length())
+					std::string * includefile = new std::string();
+					while (true)
 					{
+						if (*p >= str.length())
+						{
+							//TODO Error, abort
+						}
 						char c2 = str.data()[(*p)++];
 						(*column)++;
 						if ((c2 == ' ' || c2 == '	') && closingType != ' ')
 							continue;
 						else if (c2 == '\n' && closingType != ' ')
 						{
-							*column = 0;
+							(*column) = 0;
 							(*line)++;
 							continue;
 						} else if (c2 == '<' && closingType == ' ')
@@ -255,27 +278,39 @@ namespace jason
 						else if (c2 == closingType && closingType != ' ')
 							break;
 						else
-							includefile->append(c2 + "");
+							*includefile += c2;
 					}
 					LoadScript(includefile->data(), includedFrom);
 					delete includefile;
 				} else
 				{
-					std::stringstream error = new std::stringstream;
-					std::string msg = new std::string;
-					error << "Warining: Unexpected token '#" << *hashtype << "' at line " << *line << " column " << *column << " in ";
-					error >> msg;
-					char * c = new char[msg.length() - 14];
-					for (int i = 0; i < msg.length() - 14; i++)
-						c[i] = ' ';
-					msg >> std::cout;
-					std::string * includedFromFormatted = new std::string(*includedFrom);
-					replaceAllInString(*includedFromFormatted, std::string("<[\\spaces/]>"), std::string(c));
-					std::cout << includedFromFormatted << std::endl;
-					delete error;
+					std::cout << std::endl;
+					std::string * msg = new std::string();
+					std::stringstream * numconv = new std::stringstream();
+					std::string * numbers = new std::string();
+					*msg = "Warning: Unexpected token '#";
+					*msg += *hashtype;
+					*msg += "' at line ";
+					*numconv << *line;
+					*numconv << " column ";
+					*numconv << *column;
+					*numconv >> *numbers;
+					*msg += *numbers;
+					delete numconv;
+					delete numbers;
+					*msg += " in ";
+					std::cout << msg->data();
+					char * c = new char[msg->length() - 13];
+					for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+						c[charPos] = ' ';
+					c[msg->length() - 14] = 0;
 					delete msg;
-					delete c;
+					std::string * includedFromFormatted = new std::string(*includedFrom);
+					replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+					std::cout << *includedFromFormatted << std::endl;
+					delete [] c;
 					delete includedFromFormatted;
+					skipErrors = true;
 				}
 				delete hashtype;
 			} else if (c == '{')
@@ -283,22 +318,38 @@ namespace jason
 				(*p)--;
 				(*column)--;
 				return;
-			} else
+			} else if (!skipErrors)
 			{
-				std::stringstream error = new std::stringstream;
-				std::string msg = new std::string;
-				error << "Warining: Unexpected token '" << c << "' at line " << *line << " column " << *column << " in ";
-				error >> msg;
-				char * c = new char[msg.length() - 14];
-				for (int i = 0; i < msg.length() - 14; i++)
-					c[i] = ' ';
-				msg >> std::cout;
+				std::cout << std::endl;
+				skipErrors = true;
+				std::string * msg = new std::string();
+				std::stringstream * numconv = new std::stringstream();
+				std::string * numbers = new std::string();
+				*msg = "Warning: Unexpected token '";
+				*msg += c;
+				*msg += "' at line ";
+				*numconv << *line;
+				*numconv >> *numbers;
+				*msg += *numbers;
+				*msg += " column ";
+				delete numconv;
+				numconv = new std::stringstream();
+				*numconv << *column;
+				*numconv >> *numbers;
+				*msg += *numbers;
+				delete numconv;
+				delete numbers;
+				*msg += " in ";
+				std::cout << msg->data();
+				char * c = new char[msg->length() - 13];
+				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+					c[charPos] = ' ';
+				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, std::string("<[\\spaces/]>"), std::string(c));
-				std::cout << includedFromFormatted << std::endl;
-				delete error;
+				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
-				delete c;
+				delete [] c;
 				delete includedFromFormatted;
 			}
 		}
@@ -309,8 +360,14 @@ namespace jason
 	{
 		std::stringstream * variableconstr = new std::stringstream;
 		unsigned char varmask = 0;
-		while (*p < str.length())
+		while (true)
 		{
+			if (*p < str.length())
+			{
+				//TODO Error, abort compilation
+				return 0;
+			}
+
 			char c = str.data()[(*p)++];
 			(*column)++;
 			if (c == ' ' || c == '	')
@@ -322,8 +379,13 @@ namespace jason
 				continue;
 			} else if (c == '"')
 			{
-				while (*p < str.length())
+				while (true)
 				{
+					if (*p < str.length())
+					{
+						//TODO Error, abort compilation
+						return 0;
+					}
 					char c2 = str.data()[(*p)++];
 					(*column)++;
 					if (c == '\n')
@@ -334,62 +396,45 @@ namespace jason
 					if (c == '"')
 						break;
 					else
-						variableconstr << c;
+						*variableconstr << c;
 				}
-				while (*p < str.length())
-				{
-					char c2 = str.data()[(*p)++];
-					(*column)++;
-					if (c == ' ' || c == '	')
-						continue;
-					else if (c == '\n')
-					{
-						(*line)++;
-						*column = 0;
-						continue;
-					} else if (c == ':')
-					{
-						break;
-					}// else if (c == ',')
-					//{
-					//	break;
-					//}
-					else
-					{
-						//Error
-					}
-				}
-				std::string token = new std::string;
-				while (*p < str.length())
-				{
-					char c2 = str.data()[(*p)++];
-					(*column)++;
-					if (c == ' ' || c == '	')
-						continue;
-					else if (c == '\n')
-					{
-						(*line)++;
-						*column = 0;
-						continue;
-					}// else if (c == ':')
-					//{
-					//	break;
-					//} else
-					//{
-						//Error
-					//}
-				}
-				// else if (c == '{')
-				//{
-				//	(*column)--;
-				//	(*p)--;
-				//}
+				break;
 			} else
 			{
-				//Error
+				//TODO Error
 			}
 		}
-		delete variablename;
+		while (true) //Is the variable assigned to a value or to null
+		{
+			if (*p < str.length())
+			{
+				//TODO Error, abort compilation
+				return 0;
+			}
+			char c = str.data()[(*p)++];
+			(*column)++;
+			if (c == ' ' || c == '	')
+				continue;
+			else if (c == '\n')
+			{
+				(*line)++;
+				*column = 0;
+				continue;
+			} else if (c == ':')
+			{
+				break;
+			}//TODO else if (c == ',')
+			//{
+				//TODO comma: assign value to null
+			//	break;
+			//}
+			else
+			{
+				//TODO Error, unexpected token
+			}
+		}
+
+		delete variableconstr;
 		return 0;
 	}
 
@@ -412,10 +457,10 @@ namespace jason
 				break;
 		}
 		std::string * str = new std::string("Jason Virtual Machine internal compiler");
-		LoadScript("Library/System.jll", str);
+		LoadScript("D:/JasonVM/Library/System.jll", str);
 		delete str;
-		for (int i = 0; i < 65536; i++)
-			printf("RAM length: %d\n", RAM->getLength());
+		//for (int i = 0; i < 65536; i++)
+		//	printf("RAM length: %d\n", RAM->getLength());
 		return 0;
 	}
 }
