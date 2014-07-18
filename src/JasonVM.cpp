@@ -146,8 +146,8 @@ namespace jason
 
 	void LoadScript(const char * file, std::string * includedFrom);
 	void ParseHeader(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
-	void ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
-	pointer ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::stringstream * variablename);
+	bool ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::stringstream * variablename, byte * mask, byte * type);
+	pointer ParseValue(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * type);
 
 	void
 	LoadScript(const char * file, std::string * includedFrom)
@@ -174,8 +174,9 @@ namespace jason
 			*includedFromNew += "\"\n<[\\spaces/]>included from ";
 			*includedFromNew += includedFrom->data();
 
+			byte type = 17;
 			ParseHeader(p, *str, line_num, column, includedFromNew);
-			//ParseVariable(p, *str, line_num, column, includedFrom);
+			ParseValue(p, *str, line_num, column, includedFromNew, &type);
 
 			delete str;
 			delete p;
@@ -186,7 +187,7 @@ namespace jason
 		{
 			std::cout << std::endl;
 			std::string * msg = new std::string();
-			*msg = "Warning: Could not open file '";
+			*msg = "Error: Could not open file '";
 			*msg += file;
 			*msg += "' ";
 			std::cout << msg->data();
@@ -214,7 +215,21 @@ namespace jason
 		{
 			if (*p >= str.length())
 			{
-				//TODO: compile error, abort
+				std::cout << std::endl;
+				std::string * msg = new std::string();
+				*msg = "Error: Unexpected EOF in ";
+				std::cout << msg->data();
+				char * c = new char[msg->length() - 13];
+				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+					c[charPos] = ' ';
+				c[msg->length() - 14] = 0;
+				std::string * includedFromFormatted = new std::string(*includedFrom);
+				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				std::cout << *includedFromFormatted << std::endl;
+				delete msg;
+				delete [] c;
+				delete includedFromFormatted;
+				return;
 			}
 			char c = str.data()[(*p)++];
 			(*column)++;
@@ -233,7 +248,21 @@ namespace jason
 				{
 					if (*p >= str.length())
 					{
-						//TODO Error, abort compilation
+						std::cout << std::endl;
+						std::string * msg = new std::string();
+						*msg = "Error: Unexpected EOF in ";
+						std::cout << msg->data();
+						char * c = new char[msg->length() - 13];
+						for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+							c[charPos] = ' ';
+						c[msg->length() - 14] = 0;
+						std::string * includedFromFormatted = new std::string(*includedFrom);
+						replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+						std::cout << *includedFromFormatted << std::endl;
+						delete msg;
+						delete [] c;
+						delete includedFromFormatted;
+						return;
 					}
 					char c2 = str.data()[(*p)++];
 					(*column)++;
@@ -260,7 +289,21 @@ namespace jason
 					{
 						if (*p >= str.length())
 						{
-							//TODO Error, abort
+							std::cout << std::endl;
+							std::string * msg = new std::string();
+							*msg = "Error: Unexpected EOF in ";
+							std::cout << msg->data();
+							char * c = new char[msg->length() - 13];
+							for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+								c[charPos] = ' ';
+							c[msg->length() - 14] = 0;
+							std::string * includedFromFormatted = new std::string(*includedFrom);
+							replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+							std::cout << *includedFromFormatted << std::endl;
+							delete msg;
+							delete [] c;
+							delete includedFromFormatted;
+							return;
 						}
 						char c2 = str.data()[(*p)++];
 						(*column)++;
@@ -355,17 +398,28 @@ namespace jason
 		}
 	}
 
-	pointer
-	ParseVariable(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::stringstream * variablename)
+	bool
+	ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::stringstream * variablename, byte * mask, byte * type)
 	{
-		std::stringstream * variableconstr = new std::stringstream;
-		unsigned char varmask = 0;
 		while (true)
 		{
-			if (*p < str.length())
+			if (*p >= str.length())
 			{
-				//TODO Error, abort compilation
-				return 0;
+				std::cout << std::endl;
+				std::string * msg = new std::string();
+				*msg = "Error: Unexpected EOF in ";
+				std::cout << msg->data();
+				char * c = new char[msg->length() - 13];
+				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+					c[charPos] = ' ';
+				c[msg->length() - 14] = 0;
+				std::string * includedFromFormatted = new std::string(*includedFrom);
+				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				std::cout << *includedFromFormatted << std::endl;
+				delete msg;
+				delete [] c;
+				delete includedFromFormatted;
+				return false;
 			}
 
 			char c = str.data()[(*p)++];
@@ -379,24 +433,151 @@ namespace jason
 				continue;
 			} else if (c == '"')
 			{
+				unsigned long int declaration = *p;
+				unsigned long int start = 0;
+				unsigned long int len = 0;
 				while (true)
 				{
-					if (*p < str.length())
+					if (*p >= str.length())
 					{
-						//TODO Error, abort compilation
-						return 0;
+						std::cout << std::endl;
+						std::string * msg = new std::string();
+						*msg = "Error: Unexpected EOF in ";
+						std::cout << msg->data();
+						char * c = new char[msg->length() - 13];
+						for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+							c[charPos] = ' ';
+						c[msg->length() - 14] = 0;
+						std::string * includedFromFormatted = new std::string(*includedFrom);
+						replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+						std::cout << *includedFromFormatted << std::endl;
+						delete msg;
+						delete [] c;
+						delete includedFromFormatted;
+						return false;
 					}
 					char c2 = str.data()[(*p)++];
 					(*column)++;
-					if (c == '\n')
+					if (c2 == '\n')
 					{
 						(*line)++;
 						*column = 0;
 					}
-					if (c == '"')
+					if (c2 == '"')
+					{
+						if (start != 0)
+						{
+							char * token = new char[len + 1];
+							for (int i = 0; i < len; i++)
+								token[i] = str.data()[start + i];
+							token[len] = 0;
+							std::cout << "Received token '" << token << "'" << std::endl;
+							delete token;
+							start = 0;
+							len = 0;
+						}
 						break;
-					else
-						*variableconstr << c;
+					}
+					else if (c2 == ' ')
+					{
+						if (start != 0)
+						{
+							char * token = new char[len + 1];
+							for (int i = 0; i < len; i++)
+								token[i] = str.data()[start + i];
+							token[len] = 0;
+							if (token == "public")
+							{
+								if (*mask & 3 == 0)
+								{
+									*mask |= 3;
+								} else
+								{
+									//TODO error
+								}
+							} else if (token == "protected")
+							{
+								if (*mask & 3 == 0)
+								{
+									*mask |= 2;
+								} else
+								{
+									//TODO error
+								}
+							} else if (token == "private")
+							{
+								if (*mask & 3 == 0)
+								{
+									*mask |= 1;
+								} else
+								{
+									//TODO error
+								}
+							} else if (token == "final" || token == "const" || token == "constant")
+							{
+								if (*mask & 8 == 0)
+								{
+									if (*mask & 4 == 0)
+									{
+										*mask |= 4;
+									} else
+									{
+										//TODO warning
+									}
+								} else
+								{
+									//TODO error
+								}
+							} else if (token == "abstract" || token == "virtual")
+							{
+								if (*mask & 128 == 0)
+								{
+									if (*mask & 16 == 0)
+									{
+										if (*mask & 4 == 0)
+										{
+											if (*mask & 8 == 0)
+											{
+												*mask |= 8;
+											} else
+											{
+												//TODO warning
+											}
+										} else
+										{
+											//TODO error
+										}
+									} else
+									{
+										//TODO error
+									}
+								} else
+								{
+									//TODO error
+								}
+							} else if (token == "native")
+							{
+
+							} else if (token == "instantiable")
+							{
+
+							} else if (token == "volatile")
+							{
+
+							} else if (token == "synchronized")
+							{
+
+							}
+							delete token;
+							start = 0;
+							len = 0;
+						}
+					} else
+					{
+						if (start == 0)
+							start = *p - 1;
+						len++;
+					}
 				}
 				break;
 			} else
@@ -406,10 +587,23 @@ namespace jason
 		}
 		while (true) //Is the variable assigned to a value or to null
 		{
-			if (*p < str.length())
+			if (*p >= str.length())
 			{
-				//TODO Error, abort compilation
-				return 0;
+				std::cout << std::endl;
+				std::string * msg = new std::string();
+				*msg = "Error: Unexpected EOF in ";
+				std::cout << msg->data();
+				char * c = new char[msg->length() - 13];
+				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+					c[charPos] = ' ';
+				c[msg->length() - 14] = 0;
+				std::string * includedFromFormatted = new std::string(*includedFrom);
+				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				std::cout << *includedFromFormatted << std::endl;
+				delete msg;
+				delete [] c;
+				delete includedFromFormatted;
+				return false;
 			}
 			char c = str.data()[(*p)++];
 			(*column)++;
@@ -422,26 +616,57 @@ namespace jason
 				continue;
 			} else if (c == ':')
 			{
-				break;
-			}//TODO else if (c == ',')
-			//{
-				//TODO comma: assign value to null
-			//	break;
-			//}
-			else
+				return true;
+			} else if (c == ',')
 			{
-				//TODO Error, unexpected token
+				return false;
+			} else
+			{
+				std::cout << std::endl;
+				std::string * msg = new std::string();
+				std::stringstream * numconv = new std::stringstream();
+				std::string * numbers = new std::string();
+				*msg = "Warning: Unexpected token '";
+				*msg += c;
+				*msg += "' at line ";
+				*numconv << *line;
+				*numconv >> *numbers;
+				*msg += *numbers;
+				*msg += " column ";
+				delete numconv;
+				numconv = new std::stringstream();
+				*numconv << *column;
+				*numconv >> *numbers;
+				*msg += *numbers;
+				delete numconv;
+				delete numbers;
+				*msg += " in ";
+				std::cout << msg->data();
+				char * c = new char[msg->length() - 13];
+				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+					c[charPos] = ' ';
+				c[msg->length() - 14] = 0;
+				std::string * includedFromFormatted = new std::string(*includedFrom);
+				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				std::cout << *includedFromFormatted << std::endl;
+				delete msg;
+				delete [] c;
+				delete includedFromFormatted;
 			}
 		}
-
-		delete variableconstr;
-		return 0;
+		return false;
 	}
 
-	void
-	ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom)
+	pointer
+	ParseValue(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * type)
 	{
-
+		(*p)++;
+		(*column)++;
+		std::stringstream * strstr = new std::stringstream();
+		byte typer = 0;
+		byte mask = 0;
+		ParseName(p, str, line, column, includedFrom, strstr, &mask, &typer);
+		return 0;
 	}
 
 	int
