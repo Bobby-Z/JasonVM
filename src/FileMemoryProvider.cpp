@@ -71,16 +71,16 @@ namespace jason
 	}
 
 	unsigned long
-	FileMemoryProvider::read(byte & buff, unsigned long off, unsigned long len)
+	FileMemoryProvider::read(byte * buff, unsigned long off, unsigned long len)
 	{
-		file.read((char*) &buff, len);
+		file.read((char *) buff, len);
 		return len;
 	}
 
 	unsigned long
-	FileMemoryProvider::write(byte & buff, unsigned long off, unsigned long len)
+	FileMemoryProvider::write(byte * buff, unsigned long off, unsigned long len)
 	{
-		file.write((char*) &buff, len);
+		file.write((char *) buff, len);
 		return len;
 	}
 

@@ -17,8 +17,8 @@ namespace jason
 		currentPointer = 0;
 		length = size;
 		memory = new byte[size];
-		stack = new byte[1048576]; //The stack
-		//The empty variable
+		stack = new byte[1048576];
+		size -= 8;
 		memory[0] = (byte) ((size >> 56) & 0x3F);
 		memory[1] = (byte) ((size >> 48) & 0xFF);
 		memory[2] = (byte) ((size >> 40) & 0xFF);
@@ -27,6 +27,7 @@ namespace jason
 		memory[5] = (byte) ((size >> 16) & 0xFF);
 		memory[6] = (byte) ((size >> 8) & 0xFF);
 		memory[7] = (byte) ((size) & 0xFF);
+		size += 8;
 	}
 
 	RAMMemoryProvider::~RAMMemoryProvider()
@@ -75,22 +76,22 @@ namespace jason
 	}
 
 	unsigned long
-	RAMMemoryProvider::read(byte & buff, unsigned long off, unsigned long len)
+	RAMMemoryProvider::read(byte * buff, unsigned long off, unsigned long len)
 	{
 		for (unsigned int i = 0; i < len; i++)
 		{
-			(&buff)[i + off] = memory[currentPointer++];
+			buff[i + off] = memory[currentPointer++];
 			if (currentPointer >= length) return i;
 		}
 		return len;
 	}
 
 	unsigned long
-	RAMMemoryProvider::write(byte & buff, unsigned long off, unsigned long len)
+	RAMMemoryProvider::write(byte * buff, unsigned long off, unsigned long len)
 	{
 		for (unsigned int i = 0; i < len; i++)
 		{
-			memory[currentPointer++] = (&buff)[i + off];
+			memory[currentPointer++] = buff[i + off];
 			if (currentPointer >= length) return i;
 		}
 		return len;

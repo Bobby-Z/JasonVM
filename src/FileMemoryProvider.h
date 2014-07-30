@@ -23,8 +23,8 @@ namespace jason
 			boolean expand(pointer newSize);
 			pointer getPointer();
 			pointer getLength();
-			unsigned long read(byte& buff, unsigned long off, unsigned long len);
-			unsigned long write(byte& buff, unsigned long off, unsigned long len);
+			unsigned long read(byte * buff, unsigned long off, unsigned long len);
+			unsigned long write(byte * buff, unsigned long off, unsigned long len);
 		private:
 			std::fstream file;
 	};

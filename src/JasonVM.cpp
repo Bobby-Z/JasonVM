@@ -9,12 +9,13 @@
 #include <iostream>
 #include <stdio.h>
 #include <cstdlib>
-#include <string>
+#include <string.h>
 
 #include "RAMMemoryProvider.h"
 #include "FileMemoryProvider.h"
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 namespace jason
 {
@@ -128,16 +129,55 @@ namespace jason
 		return value;
 	}
 
+	size_t
+	find(std::string& str, const std::string& from, size_t start_pos, size_t from_pos, size_t * length)
+	{
+		size_t currentChar = from_pos;
+		size_t pos = start_pos;
+		size_t starting = std::string::npos;
+		while (currentChar < from.length())
+		{
+			if (pos >= str.length())
+				return std::string::npos;
+			char c = str.data()[pos++];
+			char c2 = from.data()[currentChar++];
+			if (c2 == '*')
+			{
+				pos--;
+				size_t asterisklen = 0;
+				size_t asterisk = find(str, from, pos, currentChar, &asterisklen);
+				if (asterisk != std::string::npos)
+				{
+					*length = asterisk + asterisklen - starting;
+					return starting;
+				} else
+					return std::string::npos;
+			} else
+			{
+				if (c2 == '\\')
+					c2 = from.data()[currentChar++];
+				if (c != c2)
+				{
+					currentChar = from_pos;
+					starting = pos;
+				}
+			}
+		}
+		*length = pos - starting;
+		return starting;
+	}
+
 	std::string
 	replaceAllInString(std::string& str, const std::string& from, const std::string& to)
 	{
 		if(from.empty())
 			return str;
 		size_t start_pos = 0;
-		while((start_pos = str.find(from, start_pos)) != std::string::npos)
+		size_t length = 0;
+		while((start_pos = find(str, from, start_pos, 0, &length)) != std::string::npos)
 		{
-			str.replace(start_pos, from.length(), to);
-			start_pos += to.length();
+			str.replace(start_pos, length, to);
+			start_pos += to.length() - 1;
 		}
 		return str;
 	}
@@ -146,18 +186,19 @@ namespace jason
 
 	struct Variable
 	{
-			std::string variableName = "(Undefined)";
-			byte mask = 0;
-			std::string type = "(null)";
-			byte typeID = 0;
-			unsigned long int valueStringPointer = 0;
-			bool isNull = false;
+			std::string variableName;
+			byte mask;
+			std::string type;
+			byte typeID;
+			unsigned long int valueStringPointer;
+			bool isNull;
 	};
 
 	void LoadScript(const char * file, std::string * includedFrom);
 	void ParseHeader(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
-	Variable ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom);
+	Variable * ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * returncode);
 	pointer ParseValue(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * type);
+	void ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<Variable *> * variables);
 
 	void
 	LoadScript(const char * file, std::string * includedFrom)
@@ -175,6 +216,13 @@ namespace jason
 			}
 			i->close();
 			delete i;
+
+			replaceAllInString(*str, "/\\*\\*/", ""); //TODO Hacky temporary fix
+			replaceAllInString(*str, "//\n", "\n"); //TODO Hacky temporary fix
+
+			replaceAllInString(*str, "/\\**\\*/", "");
+			replaceAllInString(*str, "//*\n", "\n");
+
 			unsigned long int * p = new unsigned long int(0);
 			unsigned int * line_num = new unsigned int(1);
 			unsigned int * column = new unsigned int(0);
@@ -184,9 +232,34 @@ namespace jason
 			*includedFromNew += "\"\n<[\\spaces/]>included from ";
 			*includedFromNew += includedFrom->data();
 
-			byte type = 17;
 			ParseHeader(p, *str, line_num, column, includedFromNew);
-			ParseValue(p, *str, line_num, column, includedFromNew, &type);
+			std::vector<Variable *> * v = new std::vector<Variable *>;
+			ParseBrackets(p, *str, line_num, column, includedFromNew, v);
+
+			pointer size = v->size() * 10;
+
+			for (unsigned int i = 0; i < v->size(); i++)
+				size += v->at(i)->variableName.length();
+
+			pointer variable = RAM->createVariable(size);
+
+			printf("Pointer: %d\n", variable);
+
+			RAM->seek(variable + 8);
+
+			for (unsigned int i = 0; i < v->size(); i++)
+			{
+				Variable * var = v->at(i);
+				//printf("%s\n\tMask:%d\n\tType:%s\n\tTypeID:%d\n\tPIF:%d\n\tNull:%s\n", var->variableName.data(), var->mask, var->type.data(), var->typeID, var->valueStringPointer, var->isNull ? "true" : "false");
+
+				pointer varpointer = /*ParseValue(p, *str, line_num, column, includedFromNew, &(var->typeID)) & 0x7FFFFFFFFFFFFFFF*/0;
+
+				for (int i = 0; i < var->variableName.length() + 1; i++)
+					RAM->write(var->variableName.data()[i]);
+				RAM->write(var->mask);
+				varpointer |= (pointer) var->typeID << 59 & 0xF8;
+				RAM->writeLong(varpointer);
+			}
 
 			delete str;
 			delete p;
@@ -368,8 +441,6 @@ namespace jason
 				delete hashtype;
 			} else if (c == '{')
 			{
-				(*p)--;
-				(*column)--;
 				return;
 			} else if (!skipErrors)
 			{
@@ -408,90 +479,122 @@ namespace jason
 		}
 	}
 
-	void SkipArray(unsigned long int * p, std::string str);
-	void SkipBrackets(unsigned long int * p, std::string str);
-	void SkipParentheses(unsigned long int * p, std::string str);
+	void SkipArray(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line);
+	void SkipBrackets(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line);
+	void SkipParentheses(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line);
 
 	void
-	SkipArray(unsigned long int * p, std::string str)
+	SkipArray(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
 	{
 		while (true)
 		{
-			if (p >= str.length())
+			if (*p >= str.length())
 				return;
 			char c = str.data()[(*p)++];
-			if (c == '{')
-				SkipBrackets(p, str);
+			(*column)++;
+			if (c == '\n')
+			{
+				*column = 0;
+				(*line)++;
+			} else if (c == '{')
+				SkipBrackets(p, str, column, line);
 			else if (c == '(')
-				SkipParentheses(p, str);
+				SkipParentheses(p, str, column, line);
 			else if (c == '[')
-				SkipArray(p, str);
+				SkipArray(p, str, column, line);
 			else if (c == ']')
 				return;
 		}
 	}
 
 	void
-	SkipBrackets(unsigned long int * p, std::string str)
+	SkipBrackets(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
 	{
 		while (true)
 		{
-			if (p >= str.length())
+			if (*p >= str.length())
 				return;
 			char c = str.data()[(*p)++];
-			if (c == '{')
-				SkipBrackets(p, str);
+			(*column)++;
+			if (c == '\n')
+			{
+				*column = 0;
+				(*line)++;
+			} else if (c == '{')
+				SkipBrackets(p, str, column, line);
 			else if (c == '(')
-				SkipParentheses(p, str);
+				SkipParentheses(p, str, column, line);
 			else if (c == '[')
-				SkipArray(p, str);
+				SkipArray(p, str, column, line);
 			else if (c == '}')
 				return;
 		}
 	}
 
 	void
-	SkipParentheses(unsigned long int * p, std::string str)
+	SkipParentheses(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
 	{
 		while (true)
 		{
-			if (p >= str.length())
+			if (*p >= str.length())
 				return;
 			char c = str.data()[(*p)++];
-			if (c == '{')
-				SkipBrackets(p, str);
+			(*column)++;
+			if (c == '\n')
+			{
+				*column = 0;
+				(*line)++;
+			} else if (c == '{')
+				SkipBrackets(p, str, column, line);
 			else if (c == '(')
-				SkipParentheses(p, str);
+				SkipParentheses(p, str, column, line);
 			else if (c == '[')
-				SkipArray(p, str);
+				SkipArray(p, str, column, line);
 			else if (c == ')')
 				return;
 		}
 	}
 
 	void
-	SkipValue(unsigned long int * p, std::string str)
+	SkipValue(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
 	{
 		while (true)
 		{
-			if (p >= str.length())
+			if (*p >= str.length())
 				return;
 			char c = str.data()[(*p)++];
-			if (c == '{')
-				SkipBrackets(p, str);
+			(*column)++;
+			if (c == '\n')
+			{
+				*column = 0;
+				(*line)++;
+			} else if (c == '{')
+				SkipBrackets(p, str, column, line);
 			else if (c == '(')
-				SkipParentheses(p, str);
+				SkipParentheses(p, str, column, line);
 			else if (c == '[')
-				SkipArray(p, str);
+				SkipArray(p, str, column, line);
+			else if (c == '}')
+			{
+				(*p)--;
+				(*column)--;
+				return;
+			}
 			else if (c == ',')
 				return;
 		}
 	}
 
-	Variable
-	ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom)
+	Variable *
+	ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * returncode)
 	{
-		Variable v = {};
+		Variable * v = new Variable;
+		v->variableName = std::string("(Undefined)");
+		v->mask = 0;
+		v->type = std::string("(null)");
+		v->typeID = 0;
+		v->valueStringPointer = 0;
+		v->isNull = false;
 		while (true)
 		{
 			if (*p >= str.length())
@@ -510,7 +613,8 @@ namespace jason
 				delete msg;
 				delete [] c;
 				delete includedFromFormatted;
-				return false;
+				*returncode = 1;
+				return v;
 			}
 
 			char c = str.data()[(*p)++];
@@ -523,18 +627,18 @@ namespace jason
 				*column = 0;
 				continue;
 			} else if (c == '"')
-			{
 				break;
-			} else
+			else
 			{
-				//TODO Error
+				//TODO error
+				printf("Error, unexpected token (name parser): \"%c\"\n", c);
 			}
 		}
 		unsigned long int declaration = *p;
 		unsigned long int start = 0;
 		unsigned long int len = 0;
-		std::string * objtype = new std::string("");
-		std::string * name = new std::string("");
+		std::string * objtype = new std::string;
+		std::string * name = new std::string;
 		while (true)
 		{
 			if (*p >= str.length())
@@ -553,7 +657,8 @@ namespace jason
 				delete msg;
 				delete [] c;
 				delete includedFromFormatted;
-				return false;
+				*returncode = 1;
+				return v;
 			}
 			char c2 = str.data()[(*p)++];
 			(*column)++;
@@ -561,7 +666,8 @@ namespace jason
 			{
 				(*line)++;
 				*column = 0;
-			} else if (c2 == ' ' || c2 == '"')
+			}
+			if (c2 == ' ' || c2 == '"' || c2 == '\n')
 			{
 				if (start != 0)
 				{
@@ -571,42 +677,38 @@ namespace jason
 					token[len] = 0;
 					if (std::string("public") == token)
 					{
-						std::cout << "public" << std::endl;
-						if (v.mask & 3 == 0)
+						if ((v->mask & 3) == 0)
 						{
-							v.mask |= 3;
+							v->mask |= 3;
 						} else
 						{
 							//TODO error
 						}
 					} else if (std::string("protected") == token)
 					{
-						std::cout << "protected" << std::endl;
-						if (v.mask & 3 == 0)
+						if ((v->mask & 3) == 0)
 						{
-							v.mask |= 2;
+							v->mask |= 2;
 						} else
 						{
 							//TODO error
 						}
 					} else if (std::string("private") == token)
 					{
-						std::cout << "private" << std::endl;
-						if (v.mask & 3 == 0)
+						if ((v->mask & 3) == 0)
 						{
-							v.mask |= 1;
+							v->mask |= 1;
 						} else
 						{
 							//TODO error
 						}
 					} else if (std::string("final") == token || std::string("const") == token || std::string("constant") == token)
 					{
-						std::cout << "constant" << std::endl;
-						if (v.mask & 8 == 0)
+						if ((v->mask & 8) == 0)
 						{
-							if (v.mask & 4 == 0)
+							if ((v->mask & 4) == 0)
 							{
-								v.mask |= 4;
+								v->mask |= 4;
 							} else
 							{
 								//TODO warning
@@ -617,16 +719,15 @@ namespace jason
 						}
 					} else if (std::string("abstract") == token || std::string("virtual") == token)
 					{
-						std::cout << "virtual" << std::endl;
-						if (v.mask & 128 == 0)
+						if ((v->mask & 128) == 0)
 						{
-							if (v.mask & 16 == 0)
+							if ((v->mask & 16) == 0)
 							{
-								if (v.mask & 4 == 0)
+								if ((v->mask & 4) == 0)
 								{
-									if (v.mask & 8 == 0)
+									if ((v->mask & 8) == 0)
 									{
-										v.mask |= 8;
+										v->mask |= 8;
 									} else
 									{
 										//TODO warning
@@ -645,14 +746,13 @@ namespace jason
 						}
 					} else if (std::string("native") == token)
 					{
-						std::cout << "native" << std::endl;
-						if (v.mask & 8 == 0)
+						if ((v->mask & 8) == 0)
 						{
-							if (v.mask & 16 == 0)
+							if ((v->mask & 16) == 0)
 							{
-								if (v.mask & 128 == 0)
+								if ((v->mask & 128) == 0)
 								{
-									v.mask |= 128;
+									v->mask |= 128;
 								} else
 								{
 									//TODO warning
@@ -667,14 +767,13 @@ namespace jason
 						}
 					} else if (std::string("instantiable") == token || std::string("class") == token)
 					{
-						std::cout << "instantiable" << std::endl;
-						if (v.mask & 8 == 0)
+						if ((v->mask & 8) == 0)
 						{
-							if (v.mask & 128 == 0)
+							if ((v->mask & 128) == 0)
 							{
-								if (v.mask & 16 == 0)
+								if ((v->mask & 16) == 0)
 								{
-									v.mask |= 16;
+									v->mask |= 16;
 								} else
 								{
 									//TODO warning
@@ -689,20 +788,18 @@ namespace jason
 						}
 					} else if (std::string("volatile") == token)
 					{
-						std::cout << "volatile" << std::endl;
-						if (v.mask & 32 == 0)
+						if ((v->mask & 32) == 0)
 						{
-							v.mask |= 32;
+							v->mask |= 32;
 						} else
 						{
 							//TODO warning
 						}
 					} else if (std::string("synchronized") == token)
 					{
-						std::cout << "synchronized" << std::endl;
-						if (v.mask & 64 == 0)
+						if ((v->mask & 64) == 0)
 						{
-							v.mask |= 64;
+							v->mask |= 64;
 						} else
 						{
 							//TODO warning
@@ -714,9 +811,8 @@ namespace jason
 							*objtype = name->data();
 							*name = token;
 						} else if (*name == "")
-						{
 							*name = token;
-						} else
+						else
 						{
 							//TODO error
 						}
@@ -726,9 +822,7 @@ namespace jason
 					len = 0;
 				}
 				if (c2 == '"')
-				{
 					break;
-				}
 			} else
 			{
 				if (start == 0)
@@ -740,20 +834,14 @@ namespace jason
 		{
 			//TODO error
 		}
-		if (*objtype == "")
-		{
-			*objtype = "(null)";
-		}
-		std::cout << "Variable name: " << *name << std::endl;
-		std::cout << "Variable type: " << *objtype << std::endl;
-		v.variableName = *name;
-		v.type = *objtype;
+		v->variableName = *name;
+		v->type = *objtype;
 		while (true) //Is the variable assigned to a value or to null
 		{
 			if (*p >= str.length())
 			{
 				std::cout << std::endl;
-				std::string * msg = new std::string();
+				std::string * msg = new std::string;
 				*msg = "Error: Unexpected EOF in ";
 				std::cout << msg->data();
 				char * c = new char[msg->length() - 13];
@@ -766,7 +854,8 @@ namespace jason
 				delete msg;
 				delete [] c;
 				delete includedFromFormatted;
-				return false;
+				*returncode = 1;
+				return v;
 			}
 			char c = str.data()[(*p)++];
 			(*column)++;
@@ -779,24 +868,24 @@ namespace jason
 				continue;
 			} else if (c == ':')
 			{
-				if (v.mask & 128 == 128)
+				if ((v->mask & 128) == 128)
 				{
 					//TODO error
 					continue;
 				}
-				v.valueStringPointer = *p;
-				v.isNull = false;
+				v->valueStringPointer = *p;
+				v->isNull = false;
 				break;
-			} else if (c == ',')
+			} else if (c == ',' || c == '}')
 			{
-				v.isNull = true;
+				v->isNull = true;
 				break;
 			} else
 			{
 				std::cout << std::endl;
-				std::string * msg = new std::string();
-				std::stringstream * numconv = new std::stringstream();
-				std::string * numbers = new std::string();
+				std::string * msg = new std::string;
+				std::stringstream * numconv = new std::stringstream;
+				std::string * numbers = new std::string;
 				*msg = "Warning: Unexpected token '";
 				*msg += c;
 				*msg += "' at line ";
@@ -825,17 +914,156 @@ namespace jason
 				delete includedFromFormatted;
 			}
 		}
-		SkipValue(p, str);
+		*returncode = 0;
 		return v;
 	}
 
+	//TODO fix memory leak
 	pointer
 	ParseValue(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * type)
 	{
-		(*p)++;
-		(*column)++;
-		ParseName(p, str, line, column, includedFrom);
+		unsigned long int declaration = *p;
+		unsigned long int start = 0;
+		unsigned long int len = 0;
+		std::vector<std::string> * tokens = new std::vector<std::string>;
+
+		char lasttype = 'o';
+		char expecting = 'v';
+
+		const char * operatorchars = ":=+-—*×/÷^%<>«»!&|{}[]()~;.?";
+
+		while (true)
+		{
+			bool change = false;
+			bool skipc2 = false;
+			if (*p >= str.length())
+			{
+				if (start != 0)
+				{
+					change = true;
+					skipc2 = true;
+				} else
+				{
+					break;
+				}
+			}
+			char c2 = ' ';
+			if (!skipc2)
+			{
+				c2 = str.data()[(*p)++];
+				(*column)++;
+			}
+			if (c2 == '\n')
+			{
+				(*line)++;
+				*column = 0;
+			}
+			if (strchr(operatorchars, c2) != NULL)
+			{
+				if (expecting == 'v')
+				{
+					change = true;
+					lasttype = 'v';
+					expecting = 'o';
+				}
+			} else
+			{
+				if (expecting == 'o')
+				{
+					change = true;
+					lasttype = 'o';
+					expecting = 'v';
+				}
+			}
+			if (change || c2 == ' ' || c2 == '\n' || c2 == '	')
+			{
+				if (start != 0)
+				{
+					char * token = new char[len + 1];
+					for (int i = 0; i < len; i++)
+						token[i] = str.data()[start + i];
+					token[len] = 0;
+					std::string * tokenstr = new std::string(token);
+					if (*tokenstr == "{")
+					{
+						std::stringstream * insertabletoken = new std::stringstream;
+						*insertabletoken << "p";
+						*insertabletoken << *p;
+						std::string * insertable = new std::string;
+						*insertabletoken >> *insertable;
+						delete insertabletoken;
+						tokens->push_back(*insertable);
+						std::cout << "{" << std::endl;
+						SkipBrackets(p, str, column, line);
+					} else if (*tokenstr == "}")
+					{
+						std::cout << "}" << std::endl;
+						break;
+					} else if (*tokenstr == "[")
+					{
+						std::stringstream * insertabletoken = new std::stringstream;
+						*insertabletoken << "a";
+						*insertabletoken << *p;
+						std::string * insertable = new std::string;
+						*insertabletoken >> *insertable;
+						delete insertabletoken;
+						tokens->push_back(*insertable);
+						std::cout << "[" << std::endl;
+						SkipArray(p, str, column, line);
+						std::cout << "]" << std::endl;
+					} else
+					{
+						std::stringstream * insertabletoken = new std::stringstream;
+						*insertabletoken << lasttype;
+						*insertabletoken << *tokenstr;
+						std::string * insertable = new std::string;
+						*insertabletoken >> *insertable;
+						delete insertabletoken;
+						tokens->push_back(*insertable);
+						std::cout << *insertable << std::endl;
+					}
+					start = 0;
+					len = 0;
+				}
+				if (change)
+				{
+					start = *p - 1;
+					len++;
+				}
+			} else
+			{
+				if (start == 0)
+					start = *p - 1;
+				len++;
+			}
+		}
 		return 0;
+	}
+
+	void
+	ParseBrackets(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<Variable *> * variables)
+	{
+		while (true)
+		{
+			if (*p >= str.length())
+			{
+				std::cout << "Error: unexpected EOF" << std::endl;
+				break;
+				//TODO error
+			}
+			char c2 = str.data()[(*p)++];
+			(*column)++;
+			if (c2 == '}')
+				break;
+			else
+			{
+				byte returnval = 0;
+				Variable * v = ParseName(p, str, line, column, includedFrom, &returnval);
+				if (!v->isNull)
+					SkipValue(p, str, column, line);
+				variables->push_back(v);
+			}
+		}
 	}
 
 	int
@@ -850,11 +1078,23 @@ namespace jason
 				RAM = new FileMemoryProvider(arg.memproviderargs.data());
 				break;
 		}
-		std::string * str = new std::string("Jason Virtual Machine internal compiler");
+		std::string * str = new std::string(" JasonVM internal compiler");
 		LoadScript("D:/JasonVM/Library/System.jll", str);
 		delete str;
-		//for (int i = 0; i < 65536; i++)
-		//	printf("RAM length: %d\n", RAM->getLength());
+		str = new std::string(" JasonVM");
+
+		RAM->seek(0);
+
+		//while (RAM->getPointer() < RAM->getLength()) //Memory diagnostics :)
+		//{
+		//	pointer p = RAM->getPointer();
+		//	pointer l = RAM->readLong();
+		//	byte gc = l >> 62 & 0x03;
+		//	printf("Variable\n\tPointer: %d\n\tGCStatus: %d\n\tLength: %d\n", p, gc, l & 0x3FFFFFFFFFFFFFFF);
+		//}
+
+		//LoadScript("", str);
+		delete str;
 		return 0;
 	}
 }

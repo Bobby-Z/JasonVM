@@ -20,16 +20,16 @@ namespace jason
 	class MemoryProvider
 	{
 		public:
-			MemoryProvider(){gc = 0;};
-			virtual ~MemoryProvider() = 0;
+			MemoryProvider(){gc = 1;};
+			virtual ~MemoryProvider();
 			virtual void seek(pointer p) = 0;
 			virtual pointer getPointer() = 0;
 			virtual pointer getLength() = 0;
 			virtual boolean expand(pointer newSize) = 0;
-			virtual unsigned long read(byte & buff, unsigned long off, unsigned long len) = 0;
-			virtual unsigned long write(byte & buff, unsigned long off, unsigned long len) = 0;
-			unsigned long read(byte& buff, unsigned long len);
-			unsigned long write(byte & buff, unsigned long len);
+			virtual unsigned long read(byte * buff, unsigned long off, unsigned long len) = 0;
+			virtual unsigned long write(byte * buff, unsigned long off, unsigned long len) = 0;
+			unsigned long read(byte * buff, unsigned long len);
+			unsigned long write(byte * buff, unsigned long len);
 			byte read();
 			void write(byte b);
 			unsigned short readShort();

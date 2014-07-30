@@ -6,43 +6,8 @@ namespace jason
 	{
 	}
 
-	void
-	MemoryProvider::seek(pointer p)
-	{
-	}
-
-	pointer
-	MemoryProvider::getPointer()
-	{
-		return 0;
-	}
-
-	pointer
-	MemoryProvider::getLength()
-	{
-		return 0;
-	}
-
-	boolean
-	MemoryProvider::expand(pointer newSize)
-	{
-		return false;
-	}
-
 	unsigned long
-	MemoryProvider::read(byte & buff, unsigned long off, unsigned long len)
-	{
-		return 0;
-	}
-
-	unsigned long
-	MemoryProvider::write(byte & buff, unsigned long off, unsigned long len)
-	{
-		return 0;
-	}
-
-	unsigned long
-	MemoryProvider::read(byte& buf, unsigned long len)
+	MemoryProvider::read(byte * buf, unsigned long len)
 	{
 		return read(buf, 0, len);
 	}
@@ -50,28 +15,28 @@ namespace jason
 	byte
 	MemoryProvider::read()
 	{
-		read(*buff, 1);
+		read(buff, 1);
 		return buff[0];
 	}
 
 	unsigned short
 	MemoryProvider::readShort()
 	{
-		read(*buff, 2);
+		read(buff, 2);
 		return buff[0] << 8 | buff[1];
 	}
 
 	unsigned long int
 	MemoryProvider::readInt()
 	{
-		read(*buff, 4);
+		read(buff, 4);
 		return buff[0] << 24 | buff[1] << 16 | buff[2] << 8 | buff[3];
 	}
 
 	unsigned long long
 	MemoryProvider::readLong()
 	{
-		read(*buff, 8);
+		read(buff, 8);
 		return ((unsigned long long) buff[0]) << 56 | ((unsigned long long) buff[1]) << 48 | ((unsigned long long) buff[2]) << 40 | ((unsigned long long) buff[3]) << 32 | buff[4] << 24 | buff[5] << 16 | buff[6] << 8 | buff[7];
 	}
 
@@ -80,7 +45,7 @@ namespace jason
 	{
 		unsigned short len = readShort();
 		byte * retval = new byte[len];
-		read(*retval, len);
+		read(retval, len);
 		std::string ret((const char*)retval);
 		return ret;
 	}
@@ -92,16 +57,16 @@ namespace jason
 	}
 
 	unsigned long
-	MemoryProvider::write(byte& buff, unsigned long len)
+	MemoryProvider::write(byte * buff, unsigned long len)
 	{
-		return MemoryProvider::write(buff, 0, len);
+		return write(buff, 0, len);
 	}
 
 	void
 	MemoryProvider::write(byte b)
 	{
 		buff[0] = b;
-		write(*buff, 1);
+		write(buff, 1);
 	}
 
 	void
@@ -109,7 +74,7 @@ namespace jason
 	{
 		buff[0] = (s >> 8) & 0xFF;
 		buff[1] = s & 0xFF;
-		write(*buff, 2);
+		write(buff, 2);
 	}
 
 	void
@@ -119,7 +84,7 @@ namespace jason
 		buff[1] = (i >> 16) & 0xFF;
 		buff[2] = (i >> 8) & 0xFF;
 		buff[3] = i & 0xFF;
-		write(*buff, 4);
+		write(buff, 4);
 	}
 
 	void
@@ -133,7 +98,7 @@ namespace jason
 		buff[5] = (l >> 16) & 0xFF;
 		buff[6] = (l >> 8) & 0xFF;
 		buff[7] = l & 0xFF;
-		write(*buff, 8);
+		write(buff, 8);
 	}
 
 	void
@@ -141,7 +106,7 @@ namespace jason
 	{
 		writeShort((unsigned short int) s.length());
 		byte * bytes = (byte*) s.data();
-		write(*bytes, (unsigned long int) s.length());
+		write(bytes, (unsigned long int) s.length());
 	}
 
 	void
@@ -156,33 +121,25 @@ namespace jason
 		pointer b4 = getPointer();
 		while (getPointer() < getLength())
 		{
-			if (read() == 0)
-			{
-				seek(getPointer() - 1);
-				continue;
-			}
-			seek(getPointer() - 1);
+			printf("Scanning variable %d\n", getPointer());
 			pointer l = readLong();
 			if (l & 0xC000000000000000 != 0)
 			{
+				printf("Variable is used...\n");
 				seek(getPointer() + (l & 0x3FFFFFFFFFFFFFFF));
 				continue;
 			}
-			if (l & 0x3FFFFFFFFFFFFFFF > size)
-			{
-				seek(getPointer() + (l & 0x3FFFFFFFFFFFFFFF));
-				continue;
-			}
-			pointer p = getPointer() - 1;
+			l &= 0x3FFFFFFFFFFFFFFF;
+			printf("Variable isn't used\n");
+			pointer p = getPointer();
 			if (size < l)
 			{
-				seek(getPointer() + size);
-				byte * b = new byte[l - size];
-				write(*b, l - size);
+				seek(p + size);
+				writeLong(l - size - 8);
 			}
-			seek(p);
-			writeLong(((pointer) gc << 56) | size);
-			return p;
+			seek(p - 8);
+			writeLong(((pointer) gc << 62) | size);
+			return p - 8;
 		}
 		seek(b4);
 		return getLength();
