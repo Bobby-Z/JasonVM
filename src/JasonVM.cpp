@@ -186,9 +186,9 @@ namespace jason
 
 	struct Variable
 	{
-			std::string variableName;
+			std::string * variableName;
 			byte mask;
-			std::string type;
+			std::string * type;
 			byte typeID;
 			unsigned long int valueStringPointer;
 			bool isNull;
@@ -239,7 +239,7 @@ namespace jason
 			pointer size = v->size() * 10;
 
 			for (unsigned int i = 0; i < v->size(); i++)
-				size += v->at(i)->variableName.length();
+				size += v->at(i)->variableName->length();
 
 			pointer variable = RAM->createVariable(size);
 
@@ -252,14 +252,21 @@ namespace jason
 				Variable * var = v->at(i);
 				//printf("%s\n\tMask:%d\n\tType:%s\n\tTypeID:%d\n\tPIF:%d\n\tNull:%s\n", var->variableName.data(), var->mask, var->type.data(), var->typeID, var->valueStringPointer, var->isNull ? "true" : "false");
 
-				pointer varpointer = /*ParseValue(p, *str, line_num, column, includedFromNew, &(var->typeID)) & 0x7FFFFFFFFFFFFFFF*/0;
+				pointer varpointer = ParseValue(&(var->valueStringPointer), *str, line_num, column, includedFromNew, &(var->typeID)) & 0x7FFFFFFFFFFFFFFF;
 
-				for (int i = 0; i < var->variableName.length() + 1; i++)
-					RAM->write(var->variableName.data()[i]);
+				for (int i = 0; i < var->variableName->length() + 1; i++)
+					RAM->write(var->variableName->data()[i]);
 				RAM->write(var->mask);
 				varpointer |= (pointer) var->typeID << 59 & 0xF8;
 				RAM->writeLong(varpointer);
+				delete var->variableName;
+				delete var->type;
+				delete var;
 			}
+
+			v->clear();
+
+			delete v;
 
 			delete str;
 			delete p;
@@ -589,9 +596,7 @@ namespace jason
 	ParseName(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * returncode)
 	{
 		Variable * v = new Variable;
-		v->variableName = std::string("(Undefined)");
 		v->mask = 0;
-		v->type = std::string("(null)");
 		v->typeID = 0;
 		v->valueStringPointer = 0;
 		v->isNull = false;
@@ -817,7 +822,7 @@ namespace jason
 							//TODO error
 						}
 					}
-					delete token;
+					delete [] token;
 					start = 0;
 					len = 0;
 				}
@@ -834,8 +839,8 @@ namespace jason
 		{
 			//TODO error
 		}
-		v->variableName = *name;
-		v->type = *objtype;
+		v->variableName = name;
+		v->type = objtype;
 		while (true) //Is the variable assigned to a value or to null
 		{
 			if (*p >= str.length())
@@ -1082,8 +1087,6 @@ namespace jason
 		LoadScript("D:/JasonVM/Library/System.jll", str);
 		delete str;
 		str = new std::string(" JasonVM");
-
-		RAM->seek(0);
 
 		//while (RAM->getPointer() < RAM->getLength()) //Memory diagnostics :)
 		//{
