@@ -191,6 +191,8 @@ namespace jason
 			std::string * type;
 			byte typeID;
 			unsigned long int valueStringPointer;
+			unsigned int line;
+			unsigned int column;
 			bool isNull;
 	};
 
@@ -223,6 +225,12 @@ namespace jason
 			replaceAllInString(*str, "/\\**\\*/", "");
 			replaceAllInString(*str, "//*\n", "\n");
 
+			//replaceAllInString(*str, "—", "-"); TODO TODO TODO and again TODO
+			//replaceAllInString(*str, "×", "*");
+			//replaceAllInString(*str, "÷", "/");
+			//replaceAllInString(*str, "«", "<<");
+			//replaceAllInString(*str, "»", ">>");
+
 			unsigned long int * p = new unsigned long int(0);
 			unsigned int * line_num = new unsigned int(1);
 			unsigned int * column = new unsigned int(0);
@@ -250,9 +258,16 @@ namespace jason
 			for (unsigned int i = 0; i < v->size(); i++)
 			{
 				Variable * var = v->at(i);
-				//printf("%s\n\tMask:%d\n\tType:%s\n\tTypeID:%d\n\tPIF:%d\n\tNull:%s\n", var->variableName.data(), var->mask, var->type.data(), var->typeID, var->valueStringPointer, var->isNull ? "true" : "false");
+				//printf("%s\n\tMask:%d\n\tType:%s\n\tTypeID:%d\n\tPIF:%d\n\tNull:%s\n", var->variableName->data(), var->mask, var->type->data(), var->typeID, var->valueStringPointer, var->isNull ? "true" : "false");
 
-				pointer varpointer = ParseValue(&(var->valueStringPointer), *str, line_num, column, includedFromNew, &(var->typeID)) & 0x7FFFFFFFFFFFFFFF;
+				//printf("Parsing next variable @ line %d column %d ", var->line, var->column);
+				//std::cout << std::endl;
+
+				pointer varpointer = 0;
+				if (!var->isNull)
+					varpointer = ParseValue(&(var->valueStringPointer), *str, &(var->line), &(var->column), includedFromNew, &(var->typeID)) & 0x7FFFFFFFFFFFFFFF;
+				else
+					var->typeID = 0;
 
 				for (int i = 0; i < var->variableName->length() + 1; i++)
 					RAM->write(var->variableName->data()[i]);
@@ -879,6 +894,8 @@ namespace jason
 					continue;
 				}
 				v->valueStringPointer = *p;
+				v->line = *line;
+				v->column = *column;
 				v->isNull = false;
 				break;
 			} else if (c == ',' || c == '}')
@@ -923,19 +940,30 @@ namespace jason
 		return v;
 	}
 
-	//TODO fix memory leak
-	pointer
-	ParseValue(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * type)
+	std::string operators[] = {"+", "-", "*", "/", "%", "^", "<<", ">>", "<", "<=", "==", ">=", ">", "!=", "===", "!==", ":", "=", "&", "|", "&&", "||", "~", "!&&", "!||", "+:", "+=", "-:", "-=", "*:", "*=", "/:", "/=", "%:", "%=", "^:", "^=", "<<:", "<<=", ">>:", ">>=", "&:", "&=", "|:", "|=", "++", "--", ".", "[", "]", "(", ")", "?", ",", "{", "}"};
+	//const char oplevels[] = new char[]     { 5,   5,   4,   4,   4, 3 | 128, 6,  6,    7,   7,    8,    7,    7,   8,    8,      8,    13,  13,  9,  10,   11,   12,   2,  };
+
+	byte isPartOfOperator(std::string str, unsigned long int start, unsigned long int len)
 	{
-		unsigned long int declaration = *p;
+		if (start == 0)
+			return 255;
+		for (int i = 0; i < 56; i++)
+			if (std::string(operators[i]).find(str.substr(start, len)) != std::string::npos)
+				return i;
+		return 255;
+	}
+
+	void ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
+	void ParseParentheses(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
+	//void ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
+
+	void
+	ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens)
+	{
 		unsigned long int start = 0;
 		unsigned long int len = 0;
-		std::vector<std::string> * tokens = new std::vector<std::string>;
 
-		char lasttype = 'o';
-		char expecting = 'v';
-
-		const char * operatorchars = ":=+-—*×/÷^%<>«»!&|{}[]()~;.?";
+		bool expectingOperator = false;
 
 		while (true)
 		{
@@ -944,52 +972,52 @@ namespace jason
 			if (*p >= str.length())
 			{
 				if (start != 0)
-				{
-					change = true;
-					skipc2 = true;
-				} else
-				{
+					change = skipc2 = true;
+				else
 					break;
-				}
 			}
-			char c2 = ' ';
+			char c = ' ';
 			if (!skipc2)
 			{
-				c2 = str.data()[(*p)++];
+				c = str.data()[(*p)++];
 				(*column)++;
 			}
-			if (c2 == '\n')
+			if (c == '\n')
 			{
 				(*line)++;
 				*column = 0;
 			}
-			if (strchr(operatorchars, c2) != NULL)
+			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (expecting == 'v')
+				if (isPartOfOperator(str, start, len + 1) != 255)
 				{
-					change = true;
-					lasttype = 'v';
-					expecting = 'o';
-				}
-			} else
-			{
-				if (expecting == 'o')
+					if (!expectingOperator)
+						change = expectingOperator = true;
+				} else
 				{
-					change = true;
-					lasttype = 'o';
-					expecting = 'v';
+					byte partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					if (expectingOperator)
+					{
+						if (partOfOperator != 255)
+							change = expectingOperator = true;
+						else
+							change = !(expectingOperator = false);
+					}
+					else if (partOfOperator != 255)
+						change = expectingOperator = true;
 				}
 			}
-			if (change || c2 == ' ' || c2 == '\n' || c2 == '	')
+			if (change || c == ' ' || c == '\n' || c == '	')
 			{
+				if (!change) expectingOperator = !expectingOperator;
 				if (start != 0)
 				{
 					char * token = new char[len + 1];
 					for (int i = 0; i < len; i++)
 						token[i] = str.data()[start + i];
 					token[len] = 0;
-					std::string * tokenstr = new std::string(token);
-					if (*tokenstr == "{")
+					std::string tokenstr = std::string(token);
+					if (tokenstr == "{")
 					{
 						std::stringstream * insertabletoken = new std::stringstream;
 						*insertabletoken << "p";
@@ -997,43 +1025,49 @@ namespace jason
 						std::string * insertable = new std::string;
 						*insertabletoken >> *insertable;
 						delete insertabletoken;
-						tokens->push_back(*insertable);
-						std::cout << "{" << std::endl;
+						tokens->push_back(insertable);
 						SkipBrackets(p, str, column, line);
-					} else if (*tokenstr == "}")
+					} else if (tokenstr == "}")
 					{
-						std::cout << "}" << std::endl;
+						//TODO warining: mismatched brackets, ignoring
+					} else if (tokenstr == "(")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o(");
+						tokens->push_back(insertable);
+						ParseParentheses(p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == ")")
+					{
+						//TODO warining: mismatched parentheses, ignoring
+					} else if (tokenstr == "[")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o[");
+						tokens->push_back(insertable);
+						ParseArray(p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == "]")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o]");
+						tokens->push_back(insertable);
 						break;
-					} else if (*tokenstr == "[")
-					{
-						std::stringstream * insertabletoken = new std::stringstream;
-						*insertabletoken << "a";
-						*insertabletoken << *p;
-						std::string * insertable = new std::string;
-						*insertabletoken >> *insertable;
-						delete insertabletoken;
-						tokens->push_back(*insertable);
-						std::cout << "[" << std::endl;
-						SkipArray(p, str, column, line);
-						std::cout << "]" << std::endl;
 					} else
 					{
-						std::stringstream * insertabletoken = new std::stringstream;
-						*insertabletoken << lasttype;
-						*insertabletoken << *tokenstr;
-						std::string * insertable = new std::string;
-						*insertabletoken >> *insertable;
-						delete insertabletoken;
-						tokens->push_back(*insertable);
-						std::cout << *insertable << std::endl;
+						std::string * insertable = new std::string("o");
+						*insertable += token;
+						tokens->push_back(insertable);
 					}
 					start = 0;
 					len = 0;
+					delete token;
 				}
 				if (change)
 				{
 					start = *p - 1;
-					len++;
+					len = 1;
 				}
 			} else
 			{
@@ -1042,7 +1076,270 @@ namespace jason
 				len++;
 			}
 		}
-		return 0;
+	}
+
+	void
+	ParseParentheses(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens)
+	{
+		unsigned long int start = 0;
+		unsigned long int len = 0;
+
+		bool expectingOperator = false;
+
+		while (true)
+		{
+			bool change = false;
+			bool skipc2 = false;
+			if (*p >= str.length())
+			{
+				if (start != 0)
+					change = skipc2 = true;
+				else
+					break;
+			}
+			char c = ' ';
+			if (!skipc2)
+			{
+				c = str.data()[(*p)++];
+				(*column)++;
+			}
+			if (c == '\n')
+			{
+				(*line)++;
+				*column = 0;
+			}
+			if (c != ' ' && c != '\n' && c !=  '	')
+			{
+				if (isPartOfOperator(str, start, len + 1) != 255)
+				{
+					if (!expectingOperator)
+						change = expectingOperator = true;
+				} else
+				{
+					byte partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					if (expectingOperator)
+					{
+						if (partOfOperator != 255)
+							change = expectingOperator = true;
+						else
+							change = !(expectingOperator = false);
+					}
+					else if (partOfOperator != 255)
+						change = expectingOperator = true;
+				}
+			}
+			if (change || c == ' ' || c == '\n' || c == '	')
+			{
+				if (!change) expectingOperator = !expectingOperator;
+				if (start != 0)
+				{
+					char * token = new char[len + 1];
+					for (int i = 0; i < len; i++)
+						token[i] = str.data()[start + i];
+					token[len] = 0;
+					std::string tokenstr = std::string(token);
+					if (tokenstr == "{")
+					{
+						std::stringstream * insertabletoken = new std::stringstream;
+						*insertabletoken << "p";
+						*insertabletoken << *p;
+						std::string * insertable = new std::string;
+						*insertabletoken >> *insertable;
+						delete insertabletoken;
+						tokens->push_back(insertable);
+						SkipBrackets(p, str, column, line);
+					} else if (tokenstr == "}")
+					{
+						//TODO warining: mismatched brackets, ignoring
+					} else if (tokenstr == "(")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o(");
+						tokens->push_back(insertable);
+						ParseParentheses(p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == ")")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o)");
+						tokens->push_back(insertable);
+						break;
+					} else if (tokenstr == "[")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o[");
+						tokens->push_back(insertable);
+						ParseArray(p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == "]")
+					{
+						//TODO warning: mismatched array, ignoring
+					} else
+					{
+						std::string * insertable = new std::string("o");
+						*insertable += token;
+						tokens->push_back(insertable);
+					}
+					start = 0;
+					len = 0;
+					delete token;
+				}
+				if (change)
+				{
+					start = *p - 1;
+					len = 1;
+				}
+			} else
+			{
+				if (start == 0)
+					start = *p - 1;
+				len++;
+			}
+		}
+	}
+
+	pointer //TODO untested :/
+	ParseValue(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, byte * type)
+	{
+		unsigned long int start = 0;
+		unsigned long int len = 0;
+		std::vector<std::string *> * tokens = new std::vector<std::string *>;
+
+		bool expectingOperator = false;
+
+		while (true)
+		{
+			bool change = false;
+			bool skipc2 = false;
+			if (*p >= str.length())
+			{
+				if (start != 0)
+					change = skipc2 = true;
+				else
+					break;
+			}
+			char c = ' ';
+			if (!skipc2)
+			{
+				c = str.data()[(*p)++];
+				(*column)++;
+			}
+			if (c == '\n')
+			{
+				(*line)++;
+				*column = 0;
+			}
+			if (c != ' ' && c != '\n' && c !=  '	')
+			{
+				if (isPartOfOperator(str, start, len + 1) != 255)
+				{
+					if (!expectingOperator)
+						change = expectingOperator = true;
+				} else
+				{
+					byte partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					if (expectingOperator)
+					{
+						if (partOfOperator != 255)
+							change = expectingOperator = true;
+						else
+							change = !(expectingOperator = false);
+					}
+					else if (partOfOperator != 255)
+						change = expectingOperator = true;
+				}
+			}
+			if (change || c == ' ' || c == '\n' || c == '	')
+			{
+				if (!change) expectingOperator = !expectingOperator;
+				if (start != 0)
+				{
+					char * token = new char[len + 1];
+					for (int i = 0; i < len; i++)
+						token[i] = str.data()[start + i];
+					token[len] = 0;
+					std::string tokenstr = std::string(token);
+					if (tokenstr == "{")
+					{
+						std::stringstream * insertabletoken = new std::stringstream;
+						*insertabletoken << "p";
+						*insertabletoken << *p;
+						std::string * insertable = new std::string;
+						*insertabletoken >> *insertable;
+						delete insertabletoken;
+						tokens->push_back(insertable);
+						SkipBrackets(p, str, column, line);
+					} else if (tokenstr == "," || tokenstr == "}")
+					{
+						break;
+					} else if (tokenstr == "(")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o(");
+						tokens->push_back(insertable);
+						ParseParentheses(p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == ")")
+					{
+						//TODO warning: mismatched parentheses, ignoring
+					} else if (tokenstr == "[")
+					{
+						(*p)--;
+						(*column)--;
+						std::string * insertable = new std::string("o[");
+						tokens->push_back(insertable);
+						ParseArray(p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == "]")
+					{
+						//TODO warning: mismatched array, ignoring
+					} else
+					{
+						std::string * insertable = new std::string("o");
+						*insertable += token;
+						tokens->push_back(insertable);
+					}
+					start = 0;
+					len = 0;
+					delete token;
+				}
+				if (change)
+				{
+					start = *p - 1;
+					len = 1;
+				}
+			} else
+			{
+				if (start == 0)
+					start = *p - 1;
+				len++;
+			}
+		}
+		std::vector<std::string *> * stack = new std::vector<std::string *>;
+		for (size_t i = 0; i < tokens->size(); i++)
+		{
+			std::string * str = tokens->at(i);
+
+			char c = *(str->data());
+
+			char * data = (char *) str->data();
+			data++;
+
+			if (c == 'o')
+			{
+				std::cout << data << " ";
+			} else
+			{
+				std::cout << "{ } ";
+			}
+
+			//TODO parse token
+
+			delete str;
+		}
+		delete tokens;
+		std::cout << std::endl;
+		return 9000;
 	}
 
 	void
