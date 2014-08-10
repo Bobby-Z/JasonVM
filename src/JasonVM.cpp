@@ -169,7 +169,7 @@ namespace jason
 	}
 
 	std::string
-	replaceAllInString(std::string& str, const std::string& from, const std::string& to)
+	ReplaceAllInString(std::string& str, const std::string& from, const std::string& to)
 	{
 		if(from.empty())
 			return str;
@@ -181,6 +181,56 @@ namespace jason
 			start_pos += to.length() - 1;
 		}
 		return str;
+	}
+
+	void
+	PrintError(const char * message, std::string includedFrom)
+	{
+		std::cout << std::endl;
+		std::string msg = std::string(message);
+		std::cout << msg;
+		std::cout << " in ";
+		char * c = new char[msg.length() - 9];
+		for (int charPos = 0; charPos < msg.length() - 9; charPos++)
+			c[charPos] = ' ';
+		std::string * includedFromFormatted = new std::string(includedFrom);
+		ReplaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
+		std::cout << *includedFromFormatted << std::endl;
+		delete [] c;
+		delete includedFromFormatted;
+	}
+
+	void
+	PrintError(const char * message, unsigned int * line, unsigned int * column, std::string includedFrom)
+	{
+		std::cout << std::endl;
+		std::stringstream * numconv = new std::stringstream();
+		std::string * numbers = new std::string();
+		std::string * msg = new std::string(message);
+		*msg += " at line ";
+		*numconv << *line;
+		*numconv >> *numbers;
+		*msg += *numbers;
+		*msg += " column ";
+		delete numconv;
+		numconv = new std::stringstream();
+		*numconv << *column;
+		*numconv >> *numbers;
+		*msg += *numbers;
+		delete numconv;
+		delete numbers;
+		*msg += " in ";
+		std::cout << msg->data();
+		char * c = new char[msg->length() - 13];
+		for (int charPos = 0; charPos < msg->length() - 13; charPos++)
+			c[charPos] = ' ';
+		c[msg->length() - 14] = 0;
+		std::string * includedFromFormatted = new std::string(includedFrom);
+		ReplaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
+		std::cout << *includedFromFormatted << std::endl;
+		delete msg;
+		delete [] c;
+		delete includedFromFormatted;
 	}
 
 	MemoryProvider * RAM;
@@ -220,11 +270,11 @@ namespace jason
 			i->close();
 			delete i;
 
-			replaceAllInString(*str, "/\\*\\*/", ""); //TODO Hacky temporary fix
-			replaceAllInString(*str, "//\n", "\n"); //TODO Hacky temporary fix
+			ReplaceAllInString(*str, "/\\*\\*/", "");
+			ReplaceAllInString(*str, "//\n", "\n");
 
-			replaceAllInString(*str, "/\\**\\*/", "");
-			replaceAllInString(*str, "//*\n", "\n");
+			ReplaceAllInString(*str, "/\\**\\*/", "");
+			ReplaceAllInString(*str, "//*\n", "\n");
 
 			//replaceAllInString(*str, "—", "-"); TODO TODO TODO and again TODO
 			//replaceAllInString(*str, "×", "*");
@@ -259,10 +309,9 @@ namespace jason
 			for (unsigned int i = 0; i < v->size(); i++)
 			{
 				Variable * var = v->at(i);
-				//printf("%s\n\tMask:%d\n\tType:%s\n\tTypeID:%d\n\tPIF:%d\n\tNull:%s\n", var->variableName->data(), var->mask, var->type->data(), var->typeID, var->valueStringPointer, var->isNull ? "true" : "false");
 
-				//printf("Parsing next variable @ line %d column %d ", var->line, var->column);
-				//std::cout << std::endl;
+				//printf("%s\n\tMask:%d\n\tType:%s\n\tTypeID:%d\n\tPIF:%d\n\tNull:%s\n", var->variableName->data(), var->mask, var->type->data(), var->typeID, var->valueStringPointer, var->isNull ? "true" : "false");
+				//printf("Parsing next variable @ line %d column %d\n", var->line, var->column);
 
 				pointer varpointer = 0;
 				if (!var->isNull)
@@ -303,7 +352,7 @@ namespace jason
 				c[charPos] = ' ';
 			c[msg->length()] = 0;
 			std::string * includedFromFormatted = new std::string(*includedFrom);
-			replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
+			ReplaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 			std::cout << *includedFromFormatted << std::endl;
 			delete msg;
 			delete c;
@@ -321,20 +370,7 @@ namespace jason
 		{
 			if (*p >= str.length())
 			{
-				std::cout << std::endl;
-				std::string * msg = new std::string();
-				*msg = "Error: Unexpected EOF in ";
-				std::cout << msg->data();
-				char * c = new char[msg->length() - 13];
-				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-					c[charPos] = ' ';
-				c[msg->length() - 14] = 0;
-				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-				std::cout << *includedFromFormatted << std::endl;
-				delete msg;
-				delete [] c;
-				delete includedFromFormatted;
+				PrintError("Error: Unexpected EOF", *includedFrom);
 				return;
 			}
 			char c = str.data()[(*p)++];
@@ -354,20 +390,7 @@ namespace jason
 				{
 					if (*p >= str.length())
 					{
-						std::cout << std::endl;
-						std::string * msg = new std::string();
-						*msg = "Error: Unexpected EOF in ";
-						std::cout << msg->data();
-						char * c = new char[msg->length() - 13];
-						for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-							c[charPos] = ' ';
-						c[msg->length() - 14] = 0;
-						std::string * includedFromFormatted = new std::string(*includedFrom);
-						replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-						std::cout << *includedFromFormatted << std::endl;
-						delete msg;
-						delete [] c;
-						delete includedFromFormatted;
+						PrintError("Error: Unexpected EOF", *includedFrom);
 						return;
 					}
 					char c2 = str.data()[(*p)++];
@@ -395,20 +418,7 @@ namespace jason
 					{
 						if (*p >= str.length())
 						{
-							std::cout << std::endl;
-							std::string * msg = new std::string();
-							*msg = "Error: Unexpected EOF in ";
-							std::cout << msg->data();
-							char * c = new char[msg->length() - 13];
-							for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-								c[charPos] = ' ';
-							c[msg->length() - 14] = 0;
-							std::string * includedFromFormatted = new std::string(*includedFrom);
-							replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-							std::cout << *includedFromFormatted << std::endl;
-							delete msg;
-							delete [] c;
-							delete includedFromFormatted;
+							PrintError("Error: Unexpected EOF", *includedFrom);
 							return;
 						}
 						char c2 = str.data()[(*p)++];
@@ -433,32 +443,10 @@ namespace jason
 					delete includefile;
 				} else
 				{
-					std::cout << std::endl;
-					std::string * msg = new std::string();
-					std::stringstream * numconv = new std::stringstream();
-					std::string * numbers = new std::string();
-					*msg = "Warning: Unexpected token '#";
-					*msg += *hashtype;
-					*msg += "' at line ";
-					*numconv << *line;
-					*numconv << " column ";
-					*numconv << *column;
-					*numconv >> *numbers;
-					*msg += *numbers;
-					delete numconv;
-					delete numbers;
-					*msg += " in ";
-					std::cout << msg->data();
-					char * c = new char[msg->length() - 13];
-					for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-						c[charPos] = ' ';
-					c[msg->length() - 14] = 0;
-					delete msg;
-					std::string * includedFromFormatted = new std::string(*includedFrom);
-					replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-					std::cout << *includedFromFormatted << std::endl;
-					delete [] c;
-					delete includedFromFormatted;
+					std::string msg = std::string("Warning: Unexpected token '#");
+					msg += *hashtype;
+					msg += "'";
+					PrintError(msg.data(), line, column, *includedFrom);
 					skipErrors = true;
 				}
 				delete hashtype;
@@ -467,37 +455,11 @@ namespace jason
 				return;
 			} else if (!skipErrors)
 			{
-				std::cout << std::endl;
+				std::string msg = std::string("Warning: Unexpected token '");
+				msg += c;
+				msg += "'";
+				PrintError(msg.data(), line, column, *includedFrom);
 				skipErrors = true;
-				std::string * msg = new std::string();
-				std::stringstream * numconv = new std::stringstream();
-				std::string * numbers = new std::string();
-				*msg = "Warning: Unexpected token '";
-				*msg += c;
-				*msg += "' at line ";
-				*numconv << *line;
-				*numconv >> *numbers;
-				*msg += *numbers;
-				*msg += " column ";
-				delete numconv;
-				numconv = new std::stringstream();
-				*numconv << *column;
-				*numconv >> *numbers;
-				*msg += *numbers;
-				delete numconv;
-				delete numbers;
-				*msg += " in ";
-				std::cout << msg->data();
-				char * c = new char[msg->length() - 13];
-				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-					c[charPos] = ' ';
-				c[msg->length() - 14] = 0;
-				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-				std::cout << *includedFromFormatted << std::endl;
-				delete msg;
-				delete [] c;
-				delete includedFromFormatted;
 			}
 		}
 	}
@@ -620,20 +582,7 @@ namespace jason
 		{
 			if (*p >= str.length())
 			{
-				std::cout << std::endl;
-				std::string * msg = new std::string();
-				*msg = "Error: Unexpected EOF in ";
-				std::cout << msg->data();
-				char * c = new char[msg->length() - 13];
-				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-					c[charPos] = ' ';
-				c[msg->length() - 14] = 0;
-				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-				std::cout << *includedFromFormatted << std::endl;
-				delete msg;
-				delete [] c;
-				delete includedFromFormatted;
+				PrintError("Error: Unexpected EOF", *includedFrom);
 				*returncode = 1;
 				return v;
 			}
@@ -651,8 +600,10 @@ namespace jason
 				break;
 			else
 			{
-				//TODO error
-				printf("Error, unexpected token (name parser): \"%c\"\n", c);
+				std::string msg = std::string("Warning: Unexpected token '");
+				msg += c;
+				msg += "'";
+				PrintError(msg.data(), line, column, *includedFrom);
 			}
 		}
 		unsigned long int declaration = *p;
@@ -664,20 +615,7 @@ namespace jason
 		{
 			if (*p >= str.length())
 			{
-				std::cout << std::endl;
-				std::string * msg = new std::string();
-				*msg = "Error: Unexpected EOF in ";
-				std::cout << msg->data();
-				char * c = new char[msg->length() - 13];
-				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-					c[charPos] = ' ';
-				c[msg->length() - 14] = 0;
-				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-				std::cout << *includedFromFormatted << std::endl;
-				delete msg;
-				delete [] c;
-				delete includedFromFormatted;
+				PrintError("Error: Unexpected EOF", *includedFrom);
 				*returncode = 1;
 				return v;
 			}
@@ -699,45 +637,31 @@ namespace jason
 					if (std::string("public") == token)
 					{
 						if ((v->mask & 3) == 0)
-						{
 							v->mask |= 3;
-						} else
-						{
-							//TODO error
-						}
+						else
+							PrintError("Warning: Variable visibility already declared for variable", line, column, *includedFrom);
 					} else if (std::string("protected") == token)
 					{
 						if ((v->mask & 3) == 0)
-						{
 							v->mask |= 2;
-						} else
-						{
-							//TODO error
-						}
+						else
+							PrintError("Warning: Variable visibility already declared for variable", line, column, *includedFrom);
 					} else if (std::string("private") == token)
 					{
 						if ((v->mask & 3) == 0)
-						{
 							v->mask |= 1;
-						} else
-						{
-							//TODO error
-						}
+						else
+							PrintError("Warning: Variable visibility already declared for variable", line, column, *includedFrom);
 					} else if (std::string("final") == token || std::string("const") == token || std::string("constant") == token)
 					{
 						if ((v->mask & 8) == 0)
 						{
 							if ((v->mask & 4) == 0)
-							{
 								v->mask |= 4;
-							} else
-							{
-								//TODO warning
-							}
+							else
+								PrintError("Warning: Variable declared as constant multiple times", line, column, *includedFrom);
 						} else
-						{
-							//TODO error
-						}
+							PrintError("Warning: An abstract variable can't be declared as a constant", line, column, *includedFrom);
 					} else if (std::string("abstract") == token || std::string("virtual") == token)
 					{
 						if ((v->mask & 128) == 0)
@@ -751,19 +675,19 @@ namespace jason
 										v->mask |= 8;
 									} else
 									{
-										//TODO warning
+										PrintError("Warning: Variable declared as abstract multiple times", line, column, *includedFrom);
 									}
 								} else
 								{
-									//TODO error
+									PrintError("Warning: A constant variable can't be declared as abstract", line, column, *includedFrom);
 								}
 							} else
 							{
-								//TODO error
+								PrintError("Warning: An instantiable variable can't be declared as abstract", line, column, *includedFrom);
 							}
 						} else
 						{
-							//TODO error
+							PrintError("Warning: A native variable can't be declared as abstract", line, column, *includedFrom);
 						}
 					} else if (std::string("native") == token)
 					{
@@ -776,15 +700,15 @@ namespace jason
 									v->mask |= 128;
 								} else
 								{
-									//TODO warning
+									PrintError("Warning: Variable declared as native multiple times", line, column, *includedFrom);
 								}
 							} else
 							{
-								//TODO error
+								PrintError("Warning: An instantiable variable can't be declared as native (yet)", line, column, *includedFrom);
 							}
 						} else
 						{
-							//TODO error
+							PrintError("Warning: An abstract variable can't be declared as native", line, column, *includedFrom);
 						}
 					} else if (std::string("instantiable") == token || std::string("class") == token)
 					{
@@ -797,15 +721,15 @@ namespace jason
 									v->mask |= 16;
 								} else
 								{
-									//TODO warning
+									PrintError("Warning: Variable declared as instantiable multiple times", line, column, *includedFrom);
 								}
 							} else
 							{
-								//TODO error
+								PrintError("Warning: A native variable can't be declared as instantiable (yet)", line, column, *includedFrom);
 							}
 						} else
 						{
-							//TODO error
+							PrintError("Warning: An abstract variable can't be declared as instantiable", line, column, *includedFrom);
 						}
 					} else if (std::string("volatile") == token)
 					{
@@ -814,7 +738,7 @@ namespace jason
 							v->mask |= 32;
 						} else
 						{
-							//TODO warning
+							PrintError("Warning: Variable declared as volatile multiple times", line, column, *includedFrom);
 						}
 					} else if (std::string("synchronized") == token)
 					{
@@ -823,7 +747,7 @@ namespace jason
 							v->mask |= 64;
 						} else
 						{
-							//TODO warning
+							PrintError("Warning: Variable declared as synchronized multiple times", line, column, *includedFrom);
 						}
 					} else
 					{
@@ -835,7 +759,10 @@ namespace jason
 							*name = token;
 						else
 						{
-							//TODO error
+							std::string msg("Warning: Unexpected token '");
+							msg += token;
+							msg += "'";
+							PrintError(msg.data(), line, column, *includedFrom);
 						}
 					}
 					delete [] token;
@@ -853,7 +780,7 @@ namespace jason
 		}
 		if (*name == "")
 		{
-			//TODO error
+			PrintError("Error: No variable name supplied", line, column, *includedFrom);
 		}
 		v->variableName = name;
 		v->type = objtype;
@@ -861,20 +788,7 @@ namespace jason
 		{
 			if (*p >= str.length())
 			{
-				std::cout << std::endl;
-				std::string * msg = new std::string;
-				*msg = "Error: Unexpected EOF in ";
-				std::cout << msg->data();
-				char * c = new char[msg->length() - 13];
-				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-					c[charPos] = ' ';
-				c[msg->length() - 14] = 0;
-				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-				std::cout << *includedFromFormatted << std::endl;
-				delete msg;
-				delete [] c;
-				delete includedFromFormatted;
+				PrintError("Error: Unexpected EOF", *includedFrom);
 				*returncode = 1;
 				return v;
 			}
@@ -889,11 +803,6 @@ namespace jason
 				continue;
 			} else if (c == ':')
 			{
-				if ((v->mask & 128) == 128)
-				{
-					//TODO error
-					continue;
-				}
 				v->valueStringPointer = *p;
 				v->line = *line;
 				v->column = *column;
@@ -905,36 +814,10 @@ namespace jason
 				break;
 			} else
 			{
-				std::cout << std::endl;
-				std::string * msg = new std::string;
-				std::stringstream * numconv = new std::stringstream;
-				std::string * numbers = new std::string;
-				*msg = "Warning: Unexpected token '";
-				*msg += c;
-				*msg += "' at line ";
-				*numconv << *line;
-				*numconv >> *numbers;
-				*msg += *numbers;
-				*msg += " column ";
-				delete numconv;
-				numconv = new std::stringstream();
-				*numconv << *column;
-				*numconv >> *numbers;
-				*msg += *numbers;
-				delete numconv;
-				delete numbers;
-				*msg += " in ";
-				std::cout << msg->data();
-				char * c = new char[msg->length() - 13];
-				for (int charPos = 0; charPos < msg->length() - 13; charPos++)
-					c[charPos] = ' ';
-				c[msg->length() - 14] = 0;
-				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
-				std::cout << *includedFromFormatted << std::endl;
-				delete msg;
-				delete [] c;
-				delete includedFromFormatted;
+				std::string msg("Warning: Unexpected token '");
+				msg += c;
+				msg += "'";
+				PrintError(msg.data(), line, column, *includedFrom);
 			}
 		}
 		*returncode = 0;
