@@ -29,7 +29,7 @@ namespace jason
 	};
 
 	unsigned long long
-	MemToBytes(const char* mem, signed int len)
+	MemoryUnitToBytes(const char* mem, signed int len)
 	{
 		if (len < 0)
 		{
@@ -131,7 +131,7 @@ namespace jason
 	}
 
 	size_t
-	find(std::string& str, const std::string& from, size_t start_pos, size_t from_pos, size_t * length)
+	Find(std::string& str, const std::string& from, size_t start_pos, size_t from_pos, size_t * length)
 	{
 		size_t currentChar = from_pos;
 		size_t pos = start_pos;
@@ -146,7 +146,7 @@ namespace jason
 			{
 				pos--;
 				size_t asterisklen = 0;
-				size_t asterisk = find(str, from, pos, currentChar, &asterisklen);
+				size_t asterisk = Find(str, from, pos, currentChar, &asterisklen);
 				if (asterisk != std::string::npos)
 				{
 					*length = asterisk + asterisklen - starting;
@@ -175,7 +175,7 @@ namespace jason
 			return str;
 		size_t start_pos = 0;
 		size_t length = 0;
-		while((start_pos = find(str, from, start_pos, 0, &length)) != std::string::npos)
+		while((start_pos = Find(str, from, start_pos, 0, &length)) != std::string::npos)
 		{
 			str.replace(start_pos, length, to);
 			start_pos += to.length() - 1;
@@ -779,9 +779,7 @@ namespace jason
 			}
 		}
 		if (*name == "")
-		{
 			PrintError("Error: No variable name supplied", line, column, *includedFrom);
-		}
 		v->variableName = name;
 		v->type = objtype;
 		while (true) //Is the variable assigned to a value or to null
@@ -847,7 +845,7 @@ namespace jason
 	byte opamount[] = {3, 9, 1, 1, 3, 2, 2, 4, 4, 2, 2, 2, 2, 23, 2, 1, 2};
 	bool opdirection[] = {false, true, false, true, false, false, false, false, false, false, false, false, false, true, true, false, false};
 
-	byte getOperatorLevel(std::string token)
+	byte GetOperatorLevel(std::string token)
 	{
 		for (byte i = 0; i < 17; i++)
 			for (int j = 0; j < opamount[i]; j++)
@@ -856,7 +854,7 @@ namespace jason
 		return 255;
 	}
 
-	bool isPartOfOperator(std::string str, unsigned long int start, unsigned long int len)
+	bool IsPartOfOperator(std::string str, unsigned long int start, unsigned long int len)
 	{
 		if (start == 0)
 			return false;
@@ -902,13 +900,13 @@ namespace jason
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (isPartOfOperator(str, start, len + 1))
+				if (IsPartOfOperator(str, start, len + 1))
 				{
 					if (!expectingOperator)
 						change = expectingOperator = true;
 				} else
 				{
-					bool partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					bool partOfOperator = IsPartOfOperator(str, *p - 1, 1);
 					if (expectingOperator)
 						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
 					else if (partOfOperator)
@@ -937,7 +935,7 @@ namespace jason
 						SkipBrackets(p, str, column, line);
 					} else if (tokenstr == "}")
 					{
-						//TODO warining: mismatched brackets, ignoring
+						PrintError("Warning: mismatched brackets", line, column, *includedFrom);
 					} else if (tokenstr == "(")
 					{
 						(*p)--;
@@ -947,7 +945,7 @@ namespace jason
 						ParseParentheses(p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == ")")
 					{
-						//TODO warining: mismatched parentheses, ignoring
+						PrintError("Warning: mismatched parentheses", line, column, *includedFrom);
 					} else if (tokenstr == "[")
 					{
 						(*p)--;
@@ -1018,13 +1016,13 @@ namespace jason
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (isPartOfOperator(str, start, len + 1))
+				if (IsPartOfOperator(str, start, len + 1))
 				{
 					if (!expectingOperator)
 						change = expectingOperator = true;
 				} else
 				{
-					bool partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					bool partOfOperator = IsPartOfOperator(str, *p - 1, 1);
 					if (expectingOperator)
 						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
 					else if (partOfOperator)
@@ -1053,7 +1051,7 @@ namespace jason
 						SkipBrackets(p, str, column, line);
 					} else if (tokenstr == "}")
 					{
-						//TODO warining: mismatched brackets, ignoring
+						PrintError("Warning: mismatched brackets", line, column, *includedFrom);
 					} else if (tokenstr == "(")
 					{
 						(*p)--;
@@ -1077,7 +1075,7 @@ namespace jason
 						ParseArray(p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == "]")
 					{
-						//TODO warning: mismatched array, ignoring
+						PrintError("Warning: mismatched array", line, column, *includedFrom);
 					} else
 					{
 						std::string * insertable = new std::string("o");
@@ -1135,13 +1133,13 @@ namespace jason
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (isPartOfOperator(str, start, len + 1))
+				if (IsPartOfOperator(str, start, len + 1))
 				{
 					if (!expectingOperator)
 						change = expectingOperator = true;
 				} else
 				{
-					bool partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					bool partOfOperator = IsPartOfOperator(str, *p - 1, 1);
 					if (expectingOperator)
 						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
 					else if (partOfOperator)
@@ -1182,7 +1180,7 @@ namespace jason
 						ParseParentheses(p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == ")")
 					{
-						//TODO warning: mismatched parentheses, ignoring
+						PrintError("Warning: mismatched parentheses", line, column, *includedFrom);
 					} else if (tokenstr == "[")
 					{
 						(*p)--;
@@ -1192,7 +1190,7 @@ namespace jason
 						ParseArray(p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == "]")
 					{
-						//TODO warning: mismatched array, ignoring
+						PrintError("Warning: mismatched array", line, column, *includedFrom);
 					} else
 					{
 						std::string * insertable = new std::string("o");
@@ -1246,17 +1244,20 @@ namespace jason
 						*str = "op*";
 					else
 					{
-						//TODO syntax error
+						PrintError("Warning: unexpected operator, expecting variable", line, column, *includedFrom);
 					}
 				}
 				if (*str == "o)" || *str == "o]")
 				{
+					const char * type = "array";
+					if (*str == "o)")
+						type = "parentheses";
 					wasLastOperator = true;
 					while (true)
 					{
 						if (stack->empty())
 						{
-							//TODO error
+							PrintError("Warning: mismatched " + type, line, column, *includedFrom);
 							break;
 						}
 						token = stack->back();
@@ -1272,7 +1273,7 @@ namespace jason
 					{
 						if (stack->empty())
 						{
-							//TODO error
+							//TODO comma for multiple values
 							break;
 						}
 						token = stack->back();
@@ -1286,13 +1287,13 @@ namespace jason
 					wasLastOperator = true;
 					str->replace(0, 1, "O");
 					stack->push_back(str);
-				} else if ((oplevel = getOperatorLevel((std::string) (str->substr((size_t) 1, (size_t) str->length() - 1)))) != 255)
+				} else if ((oplevel = GetOperatorLevel((std::string) (str->substr((size_t) 1, (size_t) str->length() - 1)))) != 255)
 				{
 					str->replace(0, 1, "O");
 
 					while (!stack->empty())
 					{
-						byte lastoplevel = getOperatorLevel(stack->back()->substr((size_t) 1, (size_t) stack->back()->length() - 1));
+						byte lastoplevel = GetOperatorLevel(stack->back()->substr((size_t) 1, (size_t) stack->back()->length() - 1));
 						if (opdirection[oplevel] ? oplevel <= lastoplevel : (oplevel < lastoplevel))
 							break;
 						output->push_back(stack->back());
@@ -1339,9 +1340,8 @@ namespace jason
 		{
 			if (*p >= str.length())
 			{
-				std::cout << "Error: unexpected EOF" << std::endl;
+				PrintError("Error: Unexpected EOF", *includedFrom);
 				break;
-				//TODO error
 			}
 			char c2 = str.data()[(*p)++];
 			(*column)++;
@@ -1365,7 +1365,7 @@ namespace jason
 		{
 			case 0:
 			case 1:
-				RAM = new RAMMemoryProvider(MemToBytes(arg.memproviderargs.data(), arg.memproviderargs.length() - 1));
+				RAM = new RAMMemoryProvider(MemoryUnitToBytes(arg.memproviderargs.data(), arg.memproviderargs.length() - 1));
 				break;
 				//RAM = new FileMemoryProvider(arg.memproviderargs.data());
 				//break;
