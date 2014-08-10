@@ -23,6 +23,7 @@ namespace jason
 	{
 			byte memprovider;
 			std::string memproviderargs;
+			//TODO keep a reference to the Memprovider instead of a string
 			int argc;
 			const char** arguments;
 	};
@@ -302,7 +303,7 @@ namespace jason
 				c[charPos] = ' ';
 			c[msg->length()] = 0;
 			std::string * includedFromFormatted = new std::string(*includedFrom);
-			replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+			replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 			std::cout << *includedFromFormatted << std::endl;
 			delete msg;
 			delete c;
@@ -329,7 +330,7 @@ namespace jason
 					c[charPos] = ' ';
 				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
 				delete [] c;
@@ -362,7 +363,7 @@ namespace jason
 							c[charPos] = ' ';
 						c[msg->length() - 14] = 0;
 						std::string * includedFromFormatted = new std::string(*includedFrom);
-						replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+						replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 						std::cout << *includedFromFormatted << std::endl;
 						delete msg;
 						delete [] c;
@@ -403,7 +404,7 @@ namespace jason
 								c[charPos] = ' ';
 							c[msg->length() - 14] = 0;
 							std::string * includedFromFormatted = new std::string(*includedFrom);
-							replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+							replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 							std::cout << *includedFromFormatted << std::endl;
 							delete msg;
 							delete [] c;
@@ -454,7 +455,7 @@ namespace jason
 					c[msg->length() - 14] = 0;
 					delete msg;
 					std::string * includedFromFormatted = new std::string(*includedFrom);
-					replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+					replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 					std::cout << *includedFromFormatted << std::endl;
 					delete [] c;
 					delete includedFromFormatted;
@@ -492,7 +493,7 @@ namespace jason
 					c[charPos] = ' ';
 				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
 				delete [] c;
@@ -628,7 +629,7 @@ namespace jason
 					c[charPos] = ' ';
 				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
 				delete [] c;
@@ -672,7 +673,7 @@ namespace jason
 					c[charPos] = ' ';
 				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
 				delete [] c;
@@ -869,7 +870,7 @@ namespace jason
 					c[charPos] = ' ';
 				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
 				delete [] c;
@@ -929,7 +930,7 @@ namespace jason
 					c[charPos] = ' ';
 				c[msg->length() - 14] = 0;
 				std::string * includedFromFormatted = new std::string(*includedFrom);
-				replaceAllInString(*includedFromFormatted, "<[\\spaces/]>", c);
+				replaceAllInString(*includedFromFormatted, "<[\\\\spaces/]>", c);
 				std::cout << *includedFromFormatted << std::endl;
 				delete msg;
 				delete [] c;
@@ -940,17 +941,46 @@ namespace jason
 		return v;
 	}
 
-	std::string operators[] = {"+", "-", "*", "/", "%", "^", "<<", ">>", "<", "<=", "==", ">=", ">", "!=", "===", "!==", ":", "=", "&", "|", "&&", "||", "~", "!&&", "!||", "+:", "+=", "-:", "-=", "*:", "*=", "/:", "/=", "%:", "%=", "^:", "^=", "<<:", "<<=", ">>:", ">>=", "&:", "&=", "|:", "|=", "++", "--", ".", "[", "]", "(", ")", "?", ",", "{", "}"};
-	//const char oplevels[] = new char[]     { 5,   5,   4,   4,   4, 3 | 128, 6,  6,    7,   7,    8,    7,    7,   8,    8,      8,    13,  13,  9,  10,   11,   12,   2,  };
+	std::string operators[] = {"+", "-", "*", "/", "%", "^", "<<", ">>", "<", "<=", "==", ">=", ">", "!=", "===", "!==", ":", "=", "&", "!&", "|", "!|", "&&", "||", "~", "!&&", "!||", "+:", "+=", "-:", "-=", "*:", "*=", "/:", "/=", "%:", "%=", "^:", "^=", "<<:", "<<=", ">>:", ">>=", "&:", "&=", "|:", "|=", "++", "--", ".", ".*", "[", "]", "(", ")", "?", ",", "{", "}"};
+	std::string oplevels[][23/*TODO inefficient*/] = {
+			{"++", "--", "."},
+			{"pre++", "pre--", "u+", "u-", "~", "!", "a&", "p*", "sizeof"},
+			{".*"},
+			{"^"},
+			{"*", "/", "%"},
+			{"+", "-"},
+			{"<<", ">>"},
+			{"<", "<=", ">", ">="},
+			{"==", "===", "!=", "!=="},
+			{"&", "!&"},
+			{"|", "!|"},
+			{"&&", "!&&"},
+			{"||", "!||"},
+			{"?:", ":", "=", "+:", "+=", "-:", "-=", "*:", "*=", "/:", "/=", "%:", "%=", "^:", "^=", "<<:", "<<=", ">>:", ">>=", "&:", "&=", "|:", "|="},
+			{"throw", "assert"},
+			{","},
+			{"[", "("}
+	};
+	byte opamount[] = {3, 9, 1, 1, 3, 2, 2, 4, 4, 2, 2, 2, 2, 23, 2, 1, 2};
+	bool opdirection[] = {false, true, false, true, false, false, false, false, false, false, false, false, false, true, true, false, false};
 
-	byte isPartOfOperator(std::string str, unsigned long int start, unsigned long int len)
+	byte getOperatorLevel(std::string token)
+	{
+		for (byte i = 0; i < 17; i++)
+			for (int j = 0; j < opamount[i]; j++)
+				if (oplevels[i][j] == token)
+					return i;
+		return 255;
+	}
+
+	bool isPartOfOperator(std::string str, unsigned long int start, unsigned long int len)
 	{
 		if (start == 0)
-			return 255;
-		for (int i = 0; i < 56; i++)
-			if (std::string(operators[i]).find(str.substr(start, len)) != std::string::npos)
-				return i;
-		return 255;
+			return false;
+		for (int i = 0; i < 59; i++)
+			if (operators[i].find(str.substr(start, len)) != std::string::npos)
+				return true;
+		return false;
 	}
 
 	void ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
@@ -989,21 +1019,16 @@ namespace jason
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (isPartOfOperator(str, start, len + 1) != 255)
+				if (isPartOfOperator(str, start, len + 1))
 				{
 					if (!expectingOperator)
 						change = expectingOperator = true;
 				} else
 				{
-					byte partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					bool partOfOperator = isPartOfOperator(str, *p - 1, 1);
 					if (expectingOperator)
-					{
-						if (partOfOperator != 255)
-							change = expectingOperator = true;
-						else
-							change = !(expectingOperator = false);
-					}
-					else if (partOfOperator != 255)
+						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
+					else if (partOfOperator)
 						change = expectingOperator = true;
 				}
 			}
@@ -1062,7 +1087,7 @@ namespace jason
 					}
 					start = 0;
 					len = 0;
-					delete token;
+					delete [] token;
 				}
 				if (change)
 				{
@@ -1110,21 +1135,16 @@ namespace jason
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (isPartOfOperator(str, start, len + 1) != 255)
+				if (isPartOfOperator(str, start, len + 1))
 				{
 					if (!expectingOperator)
 						change = expectingOperator = true;
 				} else
 				{
-					byte partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					bool partOfOperator = isPartOfOperator(str, *p - 1, 1);
 					if (expectingOperator)
-					{
-						if (partOfOperator != 255)
-							change = expectingOperator = true;
-						else
-							change = !(expectingOperator = false);
-					}
-					else if (partOfOperator != 255)
+						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
+					else if (partOfOperator)
 						change = expectingOperator = true;
 				}
 			}
@@ -1183,7 +1203,7 @@ namespace jason
 					}
 					start = 0;
 					len = 0;
-					delete token;
+					delete [] token;
 				}
 				if (change)
 				{
@@ -1232,21 +1252,16 @@ namespace jason
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
-				if (isPartOfOperator(str, start, len + 1) != 255)
+				if (isPartOfOperator(str, start, len + 1))
 				{
 					if (!expectingOperator)
 						change = expectingOperator = true;
 				} else
 				{
-					byte partOfOperator = isPartOfOperator(str, *p - 1, 1);
+					bool partOfOperator = isPartOfOperator(str, *p - 1, 1);
 					if (expectingOperator)
-					{
-						if (partOfOperator != 255)
-							change = expectingOperator = true;
-						else
-							change = !(expectingOperator = false);
-					}
-					else if (partOfOperator != 255)
+						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
+					else if (partOfOperator)
 						change = expectingOperator = true;
 				}
 			}
@@ -1262,12 +1277,14 @@ namespace jason
 					std::string tokenstr = std::string(token);
 					if (tokenstr == "{")
 					{
-						std::stringstream * insertabletoken = new std::stringstream;
-						*insertabletoken << "p";
-						*insertabletoken << *p;
-						std::string * insertable = new std::string;
-						*insertabletoken >> *insertable;
-						delete insertabletoken;
+						char * insertabletoken = new char[6];
+						insertabletoken[0] = 'p';
+						insertabletoken[1] = ((*p) >> 24) & 0xFF;
+						insertabletoken[2] = ((*p) >> 16) & 0xFF;
+						insertabletoken[3] = ((*p) >> 8) & 0xFF;
+						insertabletoken[4] = (*p) & 0xFF;
+						std::string * insertable = new std::string(insertabletoken);
+						delete [] insertabletoken;
 						tokens->push_back(insertable);
 						SkipBrackets(p, str, column, line);
 					} else if (tokenstr == "," || tokenstr == "}")
@@ -1301,7 +1318,7 @@ namespace jason
 					}
 					start = 0;
 					len = 0;
-					delete token;
+					delete [] token;
 				}
 				if (change)
 				{
@@ -1315,30 +1332,120 @@ namespace jason
 				len++;
 			}
 		}
+		std::vector<std::string *> * output = new std::vector<std::string *>;
 		std::vector<std::string *> * stack = new std::vector<std::string *>;
+
+		bool wasLastOperator = true;
+
 		for (size_t i = 0; i < tokens->size(); i++)
 		{
 			std::string * str = tokens->at(i);
 
 			char c = *(str->data());
 
-			char * data = (char *) str->data();
-			data++;
-
 			if (c == 'o')
 			{
-				std::cout << data << " ";
+				byte oplevel;
+				std::string * token;
+				if (wasLastOperator)
+				{
+					if (*str == "o+")
+						*str = "ou+";
+					else if (*str == "o-")
+						*str = "ou-";
+					else if (*str == "o++")
+						*str = "opre++";
+					else if (*str == "o--")
+						*str = "opre--";
+					else if (*str == "o&")
+						*str = "oa&";
+					else if (*str == "o*")
+						*str = "op*";
+					else
+					{
+						//TODO syntax error
+					}
+				}
+				if (*str == "o)" || *str == "o]")
+				{
+					wasLastOperator = true;
+					while (true)
+					{
+						if (stack->empty())
+						{
+							//TODO error
+							break;
+						}
+						token = stack->back();
+						stack->pop_back();
+						if (*token == "O(" || *token == "O[")
+							break;
+						output->push_back(token);
+					}
+				} else if (*str == "o,")
+				{
+					wasLastOperator = true;
+					while (true)
+					{
+						if (stack->empty())
+						{
+							//TODO error
+							break;
+						}
+						token = stack->back();
+						if (*token == "O(" || *token == "O[")
+							break;
+						stack->pop_back();
+						output->push_back(token);
+					}
+				} else if (*str == "o(" || *str == "o[")
+				{
+					wasLastOperator = true;
+					str->replace(0, 1, "O");
+					stack->push_back(str);
+				} else if ((oplevel = getOperatorLevel((std::string) (str->substr((size_t) 1, (size_t) str->length() - 1)))) != 255)
+				{
+					str->replace(0, 1, "O");
+
+					while (!stack->empty())
+					{
+						byte lastoplevel = getOperatorLevel(stack->back()->substr((size_t) 1, (size_t) stack->back()->length() - 1));
+						if (opdirection[oplevel] ? oplevel <= lastoplevel : (oplevel < lastoplevel))
+							break;
+						output->push_back(stack->back());
+						stack->pop_back();
+					}
+
+					stack->push_back(str);
+					wasLastOperator = true;
+				} else
+				{
+					wasLastOperator = false;
+					output->push_back(str);
+				}
 			} else
 			{
-				std::cout << "{ } ";
+				wasLastOperator = false;
+				stack->push_back(str);
 			}
-
-			//TODO parse token
-
-			delete str;
 		}
+
+		while (!stack->empty())
+		{
+			output->push_back(stack->back());
+			stack->pop_back();
+		}
+
 		delete tokens;
-		std::cout << std::endl;
+		delete stack;
+
+		for (size_t i = 0; i < output->size(); i++)
+		{
+			//TODO interpret the RPN tokens
+			delete output->at(i);
+		}
+
+		delete output;
 		return 9000;
 	}
 
@@ -1374,18 +1481,18 @@ namespace jason
 		switch (arg.memprovider)
 		{
 			case 0:
+			case 1:
 				RAM = new RAMMemoryProvider(MemToBytes(arg.memproviderargs.data(), arg.memproviderargs.length() - 1));
 				break;
-			case 1:
-				RAM = new FileMemoryProvider(arg.memproviderargs.data());
-				break;
+				//RAM = new FileMemoryProvider(arg.memproviderargs.data());
+				//break;
 		}
 		std::string * str = new std::string(" JasonVM internal compiler");
 		LoadScript("D:/JasonVM/Library/System.jll", str);
 		delete str;
 		str = new std::string(" JasonVM");
 
-		//while (RAM->getPointer() < RAM->getLength()) //Memory diagnostics :)
+		//while (RAM->getPointer() < RAM->getLength()) //Memory diagnostics
 		//{
 		//	pointer p = RAM->getPointer();
 		//	pointer l = RAM->readLong();
@@ -1402,70 +1509,80 @@ namespace jason
 byte
 GetStringArgument(const char* arg)
 {
-	if (arg == std::string("-memprovider")) return 0x00;
-	else if (arg == std::string("-version")) return 0x01;
+	if (arg == std::string("--ram")) return 0x00;
+	else if (arg == std::string("--usefile")) return 0x01;
+	else if (arg == std::string("--version") || arg == std::string("-v")) return 0x02;
+	else if (arg == std::string("--help") || arg == std::string("-h")) return 0x03;
 	else return 0xFF;
+}
+
+int
+PrintHelp()
+{
+	std::cout <<
+	"JasonVM version 1.0.0_1\n\
+Jason specification #1 (partially supported)\n\
+\n\
+Usage: JasonVM [options] file [arguments]\n\
+\n\
+The available options are:\n\
+	--ram			<size>				Select the size of RAM memory to use\n\
+\n\
+	--usefile		<location>			Use a file at the specified location for RAM\n\
+								(Note: Using a file as RAM is slower. It is recommended to use a USB for the file)\n\
+								(Note 2: This file may grow and shrink as well)\n\
+\n\
+	--version -v						Display the current version of JasonVM\n\
+\n\
+	--help -h						Display this message\n\
+\n\
+The options must be provided in lowercase.\n";
+	return 0;
 }
 
 int
 main(const int argc, const char** argv)
 {
 	if (argc == 1)
-	{
-		std::cout << "JasonVM version 1.0.0_1" << std::endl;
-		std::cout << "Jason specification 1" << std::endl;
-		std::cout << std::endl;
-		std::cout << "Usage: JasonVM [options] file [arguments]" << std::endl;
-		std::cout << std::endl;
-		std::cout << "The available options are:" << std::endl;
-		std::cout
-				<< "	-memprovider <file/ram> <location/size>:		choose the VRAM provider, or where the VM stores its RAM"
-				<< std::endl;
-		std::cout
-				<< "								if the provider is chosen to be file, then you must specify the file location"
-				<< std::endl;
-		std::cout << "								else you must specify the size of the VRAM"
-				<< std::endl;
-		std::cout << std::endl;
-		std::cout << "The options must be in lowercase." << std::endl;
-		std::cout << std::endl;
-		return 0;
-	}
+		return PrintHelp();
 	jason::MachineArgs machine = { 0, std::string("1MB"), argc, argv };
 	for (int i = 1; i < argc; i++)
 	{
 		switch (GetStringArgument(argv[i]))
 		{
 			case 0x00:
-				if (i + 2 < argc)
+				if (i + 1 < argc)
 				{
-					i++;
-					if (argv[i] == std::string("file"))
-					{
-						machine.memprovider = 1;
-						machine.memproviderargs = argv[++i];
-					} else if (argv[i] == std::string("ram"))
-					{
-						machine.memprovider = 0;
-						machine.memproviderargs = argv[++i];
-					} else
-					{
-						std::cout << "Correct usage:" << std::endl;
-						std::cout << "	-memprovider <file/ram> <location/size>"
-								<< std::endl;
-						return 2;
-					}
+					machine.memprovider = 1;
+					machine.memproviderargs = argv[++i];
 				} else
 				{
 					std::cout << "Correct usage:" << std::endl;
-					std::cout << "	-memprovider <file/ram> <location/size>"
-							<< std::endl;
+					std::cout << "	--ram <size>" << std::endl;
 					return 2;
 				}
 				break;
 			case 0x01:
+				if (i + 1 < argc)
+				{
+					machine.memprovider = 1;
+					machine.memproviderargs = argv[++i];
+				} else
+				{
+					std::cout << "Correct usage:" << std::endl;
+					std::cout << "	--ram <size>" << std::endl;
+					return 2;
+				}
+				break;
+			case 0x02:
 				std::cout << "JasonVM version 1.0.0_1" << std::endl;
-				std::cout << "Jason specification 1" << std::endl;
+				std::cout << "Jason specification #1 (partially supported)" << std::endl;
+				break;
+			case 0x03:
+				PrintHelp();
+				break;
+			default:
+				//TODO end the for loop, and then parse the file name and arguments
 				break;
 		}
 	}
