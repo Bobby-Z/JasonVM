@@ -201,20 +201,20 @@ namespace jason
 	}
 
 	void
-	PrintError(const char * message, unsigned int * line, unsigned int * column, std::string includedFrom)
+	PrintError(const char * message, unsigned int line, unsigned int column, std::string includedFrom)
 	{
 		std::cout << std::endl;
 		std::stringstream * numconv = new std::stringstream();
 		std::string * numbers = new std::string();
 		std::string * msg = new std::string(message);
 		*msg += " at line ";
-		*numconv << *line;
+		*numconv << line;
 		*numconv >> *numbers;
 		*msg += *numbers;
 		*msg += " column ";
 		delete numconv;
 		numconv = new std::stringstream();
-		*numconv << *column;
+		*numconv << column;
 		*numconv >> *numbers;
 		*msg += *numbers;
 		delete numconv;
@@ -283,8 +283,8 @@ namespace jason
 			//replaceAllInString(*str, "»", ">>");
 
 			unsigned long int * p = new unsigned long int(0);
-			unsigned int * line_num = new unsigned int(1);
-			unsigned int * column = new unsigned int(0);
+			unsigned int * line_num = new unsigned int(1); //Notepad++ starts at 1
+			unsigned int * column = new unsigned int(1); //Notepad++ starts at 1
 
 			std::string * includedFromNew = new std::string("\"");
 			*includedFromNew += file;
@@ -375,9 +375,13 @@ namespace jason
 			}
 			char c = str.data()[(*p)++];
 			(*column)++;
-			if (c == ' ' || c == '	')
+			if (c == ' ')
 				continue;
-			else if (c == '\n')
+			else if (c == '	')
+			{
+				*column += 3;
+				continue;
+			} else if (c == '\n')
 			{
 				(*line)++;
 				(*column) = 0;
@@ -395,9 +399,12 @@ namespace jason
 					}
 					char c2 = str.data()[(*p)++];
 					(*column)++;
-					if (c2 == ' ' || c2 == '	')
+					if (c2 == ' ')
 						break;
-					else if (c2 == '\n')
+					else if (c2 == '	')
+					{
+						*column += 3;
+					} else if (c2 == '\n')
 					{
 						(*column) = 0;
 						(*line)++;
@@ -423,14 +430,14 @@ namespace jason
 						}
 						char c2 = str.data()[(*p)++];
 						(*column)++;
-						if ((c2 == ' ' || c2 == '	') && closingType != ' ')
-							continue;
-						else if (c2 == '\n' && closingType != ' ')
+						if (c2 == '\n')
 						{
 							(*column) = 0;
 							(*line)++;
-							continue;
-						} else if (c2 == '<' && closingType == ' ')
+						} else if (c2 == '	')
+							*column += 3;
+
+						if (c2 == '<' && closingType == ' ')
 							closingType = '>';
 						else if (c2 == '"' && closingType == ' ')
 							closingType = '"';
@@ -446,7 +453,7 @@ namespace jason
 					std::string msg = std::string("Warning: Unexpected token '#");
 					msg += *hashtype;
 					msg += "'";
-					PrintError(msg.data(), line, column, *includedFrom);
+					PrintError(msg.data(), *line, *column - 1, *includedFrom);
 					skipErrors = true;
 				}
 				delete hashtype;
@@ -458,18 +465,22 @@ namespace jason
 				std::string msg = std::string("Warning: Unexpected token '");
 				msg += c;
 				msg += "'";
-				PrintError(msg.data(), line, column, *includedFrom);
+				PrintError(msg.data(), *line, *column - 1, *includedFrom);
 				skipErrors = true;
+			} else
+			{
+				std::string msg = std::string("Warning: Unexpected token '");
+				msg += c;
+				msg += "'";
+				PrintError(msg.data(), *includedFrom);
 			}
 		}
 	}
 
-	void SkipArray(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line);
-	void SkipBrackets(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line);
-	void SkipParentheses(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line);
+	void SkipUntil(char until, unsigned long int * p, std::string str, unsigned int * column, unsigned int * line, std::string * includedFrom);
 
 	void
-	SkipArray(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
+	SkipUntil(char until, unsigned long int * p, std::string str, unsigned int * column, unsigned int * line, std::string * includedFrom)
 	{
 		while (true)
 		{
@@ -479,69 +490,30 @@ namespace jason
 			(*column)++;
 			if (c == '\n')
 			{
-				*column = 0;
+				*column = 1;
 				(*line)++;
-			} else if (c == '{')
-				SkipBrackets(p, str, column, line);
-			else if (c == '(')
-				SkipParentheses(p, str, column, line);
-			else if (c == '[')
-				SkipArray(p, str, column, line);
-			else if (c == ']')
-				return;
-		}
-	}
-
-	void
-	SkipBrackets(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
-	{
-		while (true)
-		{
-			if (*p >= str.length())
-				return;
-			char c = str.data()[(*p)++];
-			(*column)++;
-			if (c == '\n')
+			} else if (c == '	')
 			{
-				*column = 0;
-				(*line)++;
+				*column += 3;
 			} else if (c == '{')
-				SkipBrackets(p, str, column, line);
+				SkipUntil('}', p, str, column, line, includedFrom);
 			else if (c == '(')
-				SkipParentheses(p, str, column, line);
+				SkipUntil(')', p, str, column, line, includedFrom);
 			else if (c == '[')
-				SkipArray(p, str, column, line);
+				SkipUntil(']', p, str, column, line, includedFrom);
+			else if (c == until)
+				return;
 			else if (c == '}')
-				return;
-		}
-	}
-
-	void
-	SkipParentheses(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
-	{
-		while (true)
-		{
-			if (*p >= str.length())
-				return;
-			char c = str.data()[(*p)++];
-			(*column)++;
-			if (c == '\n')
-			{
-				*column = 0;
-				(*line)++;
-			} else if (c == '{')
-				SkipBrackets(p, str, column, line);
-			else if (c == '(')
-				SkipParentheses(p, str, column, line);
-			else if (c == '[')
-				SkipArray(p, str, column, line);
+				PrintError("Warning: mismatched closing bracket", *line, *column - 1, *includedFrom);
 			else if (c == ')')
-				return;
+				PrintError("Warning: mismatched closing parentheses", *line, *column - 1, *includedFrom);
+			else if (c == ']')
+				PrintError("Warning: mismatched closing array", *line, *column - 1, *includedFrom);
 		}
 	}
 
 	void
-	SkipValue(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line)
+	SkipValue(unsigned long int * p, std::string str, unsigned int * column, unsigned int * line, std::string * includedFrom)
 	{
 		while (true)
 		{
@@ -551,14 +523,17 @@ namespace jason
 			(*column)++;
 			if (c == '\n')
 			{
-				*column = 0;
+				*column = 1;
 				(*line)++;
+			} else if (c == '	')
+			{
+				*column += 3;
 			} else if (c == '{')
-				SkipBrackets(p, str, column, line);
+				SkipUntil('}', p, str, column, line, includedFrom);
 			else if (c == '(')
-				SkipParentheses(p, str, column, line);
+				SkipUntil(')', p, str, column, line, includedFrom);
 			else if (c == '[')
-				SkipArray(p, str, column, line);
+				SkipUntil(']', p, str, column, line, includedFrom);
 			else if (c == '}')
 			{
 				(*p)--;
@@ -567,6 +542,13 @@ namespace jason
 			}
 			else if (c == ',')
 				return;
+			else if (c == ')')
+			{
+
+			} else if (c == ']')
+			{
+
+			}
 		}
 	}
 
@@ -589,12 +571,16 @@ namespace jason
 
 			char c = str.data()[(*p)++];
 			(*column)++;
-			if (c == ' ' || c == '	')
+			if (c == ' ')
 				continue;
 			else if (c == '\n')
 			{
 				(*line)++;
-				*column = 0;
+				*column = 1;
+				continue;
+			} else if (c == '	')
+			{
+				*column += 3;
 				continue;
 			} else if (c == '"')
 				break;
@@ -603,7 +589,7 @@ namespace jason
 				std::string msg = std::string("Warning: Unexpected token '");
 				msg += c;
 				msg += "'";
-				PrintError(msg.data(), line, column, *includedFrom);
+				PrintError(msg.data(), *line, *column - 1, *includedFrom);
 			}
 		}
 		unsigned long int declaration = *p;
@@ -624,9 +610,12 @@ namespace jason
 			if (c2 == '\n')
 			{
 				(*line)++;
-				*column = 0;
+				*column = 1;
+			} else if (c2 == '	')
+			{
+				*column += 3;
 			}
-			if (c2 == ' ' || c2 == '"' || c2 == '\n')
+			if (c2 == ' ' || c2 == '"' || c2 == '\n' || c2 == '	')
 			{
 				if (start != 0)
 				{
@@ -639,19 +628,19 @@ namespace jason
 						if ((v->mask & 3) == 0)
 							v->mask |= 3;
 						else
-							PrintError("Warning: Variable visibility already declared for variable", line, column, *includedFrom);
+							PrintError("Warning: Variable visibility already declared for variable", *line, *column - 1, *includedFrom);
 					} else if (std::string("protected") == token)
 					{
 						if ((v->mask & 3) == 0)
 							v->mask |= 2;
 						else
-							PrintError("Warning: Variable visibility already declared for variable", line, column, *includedFrom);
+							PrintError("Warning: Variable visibility already declared for variable", *line, *column - 1, *includedFrom);
 					} else if (std::string("private") == token)
 					{
 						if ((v->mask & 3) == 0)
 							v->mask |= 1;
 						else
-							PrintError("Warning: Variable visibility already declared for variable", line, column, *includedFrom);
+							PrintError("Warning: Variable visibility already declared for variable", *line, *column - 1, *includedFrom);
 					} else if (std::string("final") == token || std::string("const") == token || std::string("constant") == token)
 					{
 						if ((v->mask & 8) == 0)
@@ -659,9 +648,9 @@ namespace jason
 							if ((v->mask & 4) == 0)
 								v->mask |= 4;
 							else
-								PrintError("Warning: Variable declared as constant multiple times", line, column, *includedFrom);
+								PrintError("Warning: Variable declared as constant multiple times", *line, *column - 1, *includedFrom);
 						} else
-							PrintError("Warning: An abstract variable can't be declared as a constant", line, column, *includedFrom);
+							PrintError("Warning: An abstract variable can't be declared as a constant", *line, *column - 1, *includedFrom);
 					} else if (std::string("abstract") == token || std::string("virtual") == token)
 					{
 						if ((v->mask & 128) == 0)
@@ -675,19 +664,19 @@ namespace jason
 										v->mask |= 8;
 									} else
 									{
-										PrintError("Warning: Variable declared as abstract multiple times", line, column, *includedFrom);
+										PrintError("Warning: Variable declared as abstract multiple times", *line, *column - 1, *includedFrom);
 									}
 								} else
 								{
-									PrintError("Warning: A constant variable can't be declared as abstract", line, column, *includedFrom);
+									PrintError("Warning: A constant variable can't be declared as abstract", *line, *column - 1, *includedFrom);
 								}
 							} else
 							{
-								PrintError("Warning: An instantiable variable can't be declared as abstract", line, column, *includedFrom);
+								PrintError("Warning: An instantiable variable can't be declared as abstract", *line, *column - 1, *includedFrom);
 							}
 						} else
 						{
-							PrintError("Warning: A native variable can't be declared as abstract", line, column, *includedFrom);
+							PrintError("Warning: A native variable can't be declared as abstract", *line, *column - 1, *includedFrom);
 						}
 					} else if (std::string("native") == token)
 					{
@@ -700,15 +689,15 @@ namespace jason
 									v->mask |= 128;
 								} else
 								{
-									PrintError("Warning: Variable declared as native multiple times", line, column, *includedFrom);
+									PrintError("Warning: Variable declared as native multiple times", *line, *column - 1, *includedFrom);
 								}
 							} else
 							{
-								PrintError("Warning: An instantiable variable can't be declared as native (yet)", line, column, *includedFrom);
+								PrintError("Warning: An instantiable variable can't be declared as native (yet)", *line, *column - 1, *includedFrom);
 							}
 						} else
 						{
-							PrintError("Warning: An abstract variable can't be declared as native", line, column, *includedFrom);
+							PrintError("Warning: An abstract variable can't be declared as native", *line, *column - 1, *includedFrom);
 						}
 					} else if (std::string("instantiable") == token || std::string("class") == token)
 					{
@@ -721,15 +710,15 @@ namespace jason
 									v->mask |= 16;
 								} else
 								{
-									PrintError("Warning: Variable declared as instantiable multiple times", line, column, *includedFrom);
+									PrintError("Warning: Variable declared as instantiable multiple times", *line, *column - 1, *includedFrom);
 								}
 							} else
 							{
-								PrintError("Warning: A native variable can't be declared as instantiable (yet)", line, column, *includedFrom);
+								PrintError("Warning: A native variable can't be declared as instantiable (yet)", *line, *column - 1, *includedFrom);
 							}
 						} else
 						{
-							PrintError("Warning: An abstract variable can't be declared as instantiable", line, column, *includedFrom);
+							PrintError("Warning: An abstract variable can't be declared as instantiable", *line, *column - 1, *includedFrom);
 						}
 					} else if (std::string("volatile") == token)
 					{
@@ -738,7 +727,7 @@ namespace jason
 							v->mask |= 32;
 						} else
 						{
-							PrintError("Warning: Variable declared as volatile multiple times", line, column, *includedFrom);
+							PrintError("Warning: Variable declared as volatile multiple times", *line, *column - 1, *includedFrom);
 						}
 					} else if (std::string("synchronized") == token)
 					{
@@ -747,7 +736,7 @@ namespace jason
 							v->mask |= 64;
 						} else
 						{
-							PrintError("Warning: Variable declared as synchronized multiple times", line, column, *includedFrom);
+							PrintError("Warning: Variable declared as synchronized multiple times", *line, *column - 1, *includedFrom);
 						}
 					} else
 					{
@@ -762,7 +751,7 @@ namespace jason
 							std::string msg("Warning: Unexpected token '");
 							msg += token;
 							msg += "'";
-							PrintError(msg.data(), line, column, *includedFrom);
+							PrintError(msg.data(), *line, *column - 1, *includedFrom);
 						}
 					}
 					delete [] token;
@@ -779,7 +768,7 @@ namespace jason
 			}
 		}
 		if (*name == "")
-			PrintError("Error: No variable name supplied", line, column, *includedFrom);
+			PrintError("Error: No variable name supplied", *line, *column - 1, *includedFrom);
 		v->variableName = name;
 		v->type = objtype;
 		while (true) //Is the variable assigned to a value or to null
@@ -792,12 +781,16 @@ namespace jason
 			}
 			char c = str.data()[(*p)++];
 			(*column)++;
-			if (c == ' ' || c == '	')
+			if (c == ' ')
 				continue;
 			else if (c == '\n')
 			{
 				(*line)++;
-				*column = 0;
+				*column = 1;
+				continue;
+			} else if (c == '	')
+			{
+				*column += 3;
 				continue;
 			} else if (c == ':')
 			{
@@ -815,7 +808,7 @@ namespace jason
 				std::string msg("Warning: Unexpected token '");
 				msg += c;
 				msg += "'";
-				PrintError(msg.data(), line, column, *includedFrom);
+				PrintError(msg.data(), *line, *column - 1, *includedFrom);
 			}
 		}
 		*returncode = 0;
@@ -864,12 +857,10 @@ namespace jason
 		return false;
 	}
 
-	void ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
-	void ParseParentheses(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
-	//void ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
+	void ParseUntilReceived(std::string until, unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens);
 
 	void
-	ParseArray(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens)
+	ParseUntilReceived(std::string until, unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens)
 	{
 		unsigned long int start = 0;
 		unsigned long int len = 0;
@@ -896,7 +887,7 @@ namespace jason
 			if (c == '\n')
 			{
 				(*line)++;
-				*column = 0;
+				*column = 1;
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
@@ -932,150 +923,36 @@ namespace jason
 						*insertabletoken >> *insertable;
 						delete insertabletoken;
 						tokens->push_back(insertable);
-						SkipBrackets(p, str, column, line);
+						SkipUntil('}', p, str, column, line, includedFrom);
 					} else if (tokenstr == "}")
 					{
-						PrintError("Warning: mismatched brackets", line, column, *includedFrom);
+						PrintError("Warning: mismatched closing bracket", *line, *column - 1, *includedFrom);
 					} else if (tokenstr == "(")
 					{
 						(*p)--;
 						(*column)--;
 						std::string * insertable = new std::string("o(");
 						tokens->push_back(insertable);
-						ParseParentheses(p, str, line, column, includedFrom, tokens);
-					} else if (tokenstr == ")")
-					{
-						PrintError("Warning: mismatched parentheses", line, column, *includedFrom);
-					} else if (tokenstr == "[")
-					{
-						(*p)--;
-						(*column)--;
-						std::string * insertable = new std::string("o[");
-						tokens->push_back(insertable);
-						ParseArray(p, str, line, column, includedFrom, tokens);
-					} else if (tokenstr == "]")
-					{
-						(*p)--;
-						(*column)--;
-						std::string * insertable = new std::string("o]");
-						tokens->push_back(insertable);
-						break;
-					} else
+						ParseUntilReceived(")", p, str, line, column, includedFrom, tokens);
+					} else if (tokenstr == until)
 					{
 						std::string * insertable = new std::string("o");
-						*insertable += token;
-						tokens->push_back(insertable);
-					}
-					start = 0;
-					len = 0;
-					delete [] token;
-				}
-				if (change)
-				{
-					start = *p - 1;
-					len = 1;
-				}
-			} else
-			{
-				if (start == 0)
-					start = *p - 1;
-				len++;
-			}
-		}
-	}
-
-	void
-	ParseParentheses(unsigned long int * p, std::string str, unsigned int * line, unsigned int * column, std::string * includedFrom, std::vector<std::string *> * tokens)
-	{
-		unsigned long int start = 0;
-		unsigned long int len = 0;
-
-		bool expectingOperator = false;
-
-		while (true)
-		{
-			bool change = false;
-			bool skipc2 = false;
-			if (*p >= str.length())
-			{
-				if (start != 0)
-					change = skipc2 = true;
-				else
-					break;
-			}
-			char c = ' ';
-			if (!skipc2)
-			{
-				c = str.data()[(*p)++];
-				(*column)++;
-			}
-			if (c == '\n')
-			{
-				(*line)++;
-				*column = 0;
-			}
-			if (c != ' ' && c != '\n' && c !=  '	')
-			{
-				if (IsPartOfOperator(str, start, len + 1))
-				{
-					if (!expectingOperator)
-						change = expectingOperator = true;
-				} else
-				{
-					bool partOfOperator = IsPartOfOperator(str, *p - 1, 1);
-					if (expectingOperator)
-						change = partOfOperator ? expectingOperator = true : !(expectingOperator = false);
-					else if (partOfOperator)
-						change = expectingOperator = true;
-				}
-			}
-			if (change || c == ' ' || c == '\n' || c == '	')
-			{
-				if (!change) expectingOperator = !expectingOperator;
-				if (start != 0)
-				{
-					char * token = new char[len + 1];
-					for (int i = 0; i < len; i++)
-						token[i] = str.data()[start + i];
-					token[len] = 0;
-					std::string tokenstr = std::string(token);
-					if (tokenstr == "{")
-					{
-						std::stringstream * insertabletoken = new std::stringstream;
-						*insertabletoken << "p";
-						*insertabletoken << *p;
-						std::string * insertable = new std::string;
-						*insertabletoken >> *insertable;
-						delete insertabletoken;
-						tokens->push_back(insertable);
-						SkipBrackets(p, str, column, line);
-					} else if (tokenstr == "}")
-					{
-						PrintError("Warning: mismatched brackets", line, column, *includedFrom);
-					} else if (tokenstr == "(")
-					{
-						(*p)--;
-						(*column)--;
-						std::string * insertable = new std::string("o(");
-						tokens->push_back(insertable);
-						ParseParentheses(p, str, line, column, includedFrom, tokens);
-					} else if (tokenstr == ")")
-					{
-						(*p)--;
-						(*column)--;
-						std::string * insertable = new std::string("o)");
+						*insertable += tokenstr;
 						tokens->push_back(insertable);
 						break;
+					} else if (tokenstr == ")")
+					{
+						PrintError("Warning: mismatched closing parentheses", *line, *column - 1, *includedFrom);
 					} else if (tokenstr == "[")
 					{
 						(*p)--;
 						(*column)--;
 						std::string * insertable = new std::string("o[");
 						tokens->push_back(insertable);
-						ParseArray(p, str, line, column, includedFrom, tokens);
+						ParseUntilReceived("]", p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == "]")
 					{
-						PrintError("Warning: mismatched array", line, column, *includedFrom);
+						PrintError("Warning: mismatched closing array", *line, *column - 1, *includedFrom);
 					} else
 					{
 						std::string * insertable = new std::string("o");
@@ -1125,11 +1002,14 @@ namespace jason
 			{
 				c = str.data()[(*p)++];
 				(*column)++;
-			}
-			if (c == '\n')
-			{
-				(*line)++;
-				*column = 0;
+				if (c == '\n')
+				{
+					(*line)++;
+					*column = 1;
+				} else if (c == '	')
+				{
+					*column += 3;
+				}
 			}
 			if (c != ' ' && c != '\n' && c !=  '	')
 			{
@@ -1167,7 +1047,7 @@ namespace jason
 						std::string * insertable = new std::string(insertabletoken);
 						delete [] insertabletoken;
 						tokens->push_back(insertable);
-						SkipBrackets(p, str, column, line);
+						SkipUntil('}', p, str, column, line, includedFrom);
 					} else if (tokenstr == "," || tokenstr == "}")
 					{
 						break;
@@ -1177,20 +1057,20 @@ namespace jason
 						(*column)--;
 						std::string * insertable = new std::string("o(");
 						tokens->push_back(insertable);
-						ParseParentheses(p, str, line, column, includedFrom, tokens);
+						ParseUntilReceived(")", p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == ")")
 					{
-						PrintError("Warning: mismatched parentheses", line, column, *includedFrom);
+						PrintError("Warning: mismatched closing parentheses", *line, *column - 1, *includedFrom);
 					} else if (tokenstr == "[")
 					{
 						(*p)--;
 						(*column)--;
 						std::string * insertable = new std::string("o[");
 						tokens->push_back(insertable);
-						ParseArray(p, str, line, column, includedFrom, tokens);
+						ParseUntilReceived("]", p, str, line, column, includedFrom, tokens);
 					} else if (tokenstr == "]")
 					{
-						PrintError("Warning: mismatched array", line, column, *includedFrom);
+						PrintError("Warning: mismatched closing array", *line, *column - 1, *includedFrom);
 					} else
 					{
 						std::string * insertable = new std::string("o");
@@ -1242,10 +1122,6 @@ namespace jason
 						*str = "oa&";
 					else if (*str == "o*")
 						*str = "op*";
-					else
-					{
-						PrintError("Warning: unexpected operator, expecting variable", line, column, *includedFrom);
-					}
 				}
 				if (*str == "o)" || *str == "o]")
 				{
@@ -1257,7 +1133,7 @@ namespace jason
 					{
 						if (stack->empty())
 						{
-							PrintError("Warning: mismatched " + type, line, column, *includedFrom);
+							PrintError((std::string("Warning: mismatched ") + type).data(), *includedFrom);
 							break;
 						}
 						token = stack->back();
@@ -1310,7 +1186,7 @@ namespace jason
 			} else
 			{
 				wasLastOperator = false;
-				stack->push_back(str);
+				output->push_back(str);
 			}
 		}
 
@@ -1321,11 +1197,29 @@ namespace jason
 		}
 
 		delete tokens;
-		delete stack;
 
 		for (size_t i = 0; i < output->size(); i++)
 		{
-			//TODO interpret the RPN tokens
+			std::string * token = output->at(i);
+			char c = *(token->data());
+			token->replace(0, 1, "");
+			if (c == 'o')
+			{
+				if (*token == "new")
+				{
+
+				} else
+					stack->push_back(token);
+			}
+			else if (c == 'O')
+			{
+				//TODO math
+			} else if (c == 'p')
+			{
+				unsigned long int p = token->data()[0] << 24 | token->data()[1] << 16 | token->data()[2] << 8 | token->data()[3];
+				//TODO parse
+			}
+
 			delete output->at(i);
 		}
 
@@ -1347,12 +1241,21 @@ namespace jason
 			(*column)++;
 			if (c2 == '}')
 				break;
-			else
+			else if (c2 == '\n')
 			{
+				(*line)++;
+				*column = 1;
+			} else if (c2 == '	')
+			{
+				*column += 3;
+			} else
+			{
+				(*p)--;
+				(*column)--;
 				byte returnval = 0;
 				Variable * v = ParseName(p, str, line, column, includedFrom, &returnval);
 				if (!v->isNull)
-					SkipValue(p, str, column, line);
+					SkipValue(p, str, column, line, includedFrom);
 				variables->push_back(v);
 			}
 		}
