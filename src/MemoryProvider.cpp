@@ -2,158 +2,252 @@
 
 namespace jason
 {
+	MemoryProvider::MemoryProvider(pointer size)
+	{
+		size &= 0x3FFFFFFFFFFFFFFF;
+		reserved = new byte[16384];
+		length = size;
+		memory = new byte[size];
+		*((pointer *) memory) = size - 8;
+	}
+
 	MemoryProvider::~MemoryProvider()
 	{
+		delete[] memory;
+		delete[] reserved;
+	}
+
+	pointer
+	MemoryProvider::getLength()
+	{
+		return length;
+	}
+
+	bool
+	MemoryProvider::expand(pointer newSize)
+	{
+		byte * tmpdata;
+		try
+		{
+			tmpdata = new byte[newSize];
+		} catch (std::bad_alloc & er)
+		{
+			delete[] reserved;
+			delete[] tmpdata;
+			std::cout << er.what() << std::endl;
+			return false;
+		}
+		std::copy(memory + 0, memory + length, tmpdata);
+		delete[] memory;
+		memory = tmpdata;
+		return true;
 	}
 
 	unsigned long
-	MemoryProvider::read(byte * buf, unsigned long len)
+	MemoryProvider::read(pointer loc, byte * buff, unsigned long off, unsigned long len)
 	{
-		return read(buf, 0, len);
+		for (unsigned int i = 0; i < len; i++)
+		{
+			buff[i + off] = memory[loc++];
+			if (loc >= length) return i;
+		}
+		return len;
 	}
 
-	byte
-	MemoryProvider::read()
+	unsigned long
+	MemoryProvider::write(pointer loc, byte * buff, unsigned long off, unsigned long len)
 	{
-		read(buff, 1);
-		return buff[0];
+		for (unsigned int i = 0; i < len; i++)
+		{
+			memory[loc++] = buff[i + off];
+			if (loc >= length) return i;
+		}
+		return len;
 	}
 
-	unsigned short
-	MemoryProvider::readShort()
+	unsigned long
+	MemoryProvider::read(pointer loc, byte * buf, unsigned long len)
 	{
-		read(buff, 2);
-		return buff[0] << 8 | buff[1];
+		return read(loc, buf, 0, len);
 	}
 
-	unsigned long int
-	MemoryProvider::readInt()
+	byte8
+	MemoryProvider::read(pointer loc)
 	{
-		read(buff, 4);
-		return buff[0] << 24 | buff[1] << 16 | buff[2] << 8 | buff[3];
+		return memory[loc];
 	}
 
-	unsigned long long
-	MemoryProvider::readLong()
+	short16
+	MemoryProvider::readShort(pointer loc)
 	{
-		read(buff, 8);
-		return ((unsigned long long) buff[0]) << 56 | ((unsigned long long) buff[1]) << 48 | ((unsigned long long) buff[2]) << 40 | ((unsigned long long) buff[3]) << 32 | buff[4] << 24 | buff[5] << 16 | buff[6] << 8 | buff[7];
+		short16 s = *((short16 *) &memory[loc]);
+		return s;
+	}
+
+	int32
+	MemoryProvider::readInt(pointer loc)
+	{
+		int32 i = *((int32 *) &memory[loc]);
+		return i;
+	}
+
+	long64
+	MemoryProvider::readLong(pointer loc)
+	{
+		long64 l = *((long64 *) &memory[loc]);
+		return l;
 	}
 
 	std::string
-	MemoryProvider::readUTF8()
+	MemoryProvider::readUTF8(pointer loc)
 	{
-		unsigned short len = readShort();
+		unsigned short len = readShort(loc);
 		byte * retval = new byte[len];
-		read(retval, len);
+		read(loc + 2, retval, len);
 		std::string ret((const char*)retval);
+		delete [] retval;
 		return ret;
 	}
 
 	std::string
-	MemoryProvider::readUTF16()
+	MemoryProvider::readUTF16(pointer loc)
 	{
-		return readUTF8();
+		return readUTF8(loc);
 	}
 
 	unsigned long
-	MemoryProvider::write(byte * buff, unsigned long len)
+	MemoryProvider::write(pointer loc, byte * buff, unsigned long len)
 	{
-		return write(buff, 0, len);
+		return write(loc, buff, 0, len);
 	}
 
 	void
-	MemoryProvider::write(byte b)
+	MemoryProvider::write(pointer loc, byte8 b)
 	{
-		buff[0] = b;
-		write(buff, 1);
+		memory[loc] = b;
 	}
 
 	void
-	MemoryProvider::writeShort(unsigned short int s)
+	MemoryProvider::writeShort(pointer loc, short16 s)
 	{
-		buff[0] = (s >> 8) & 0xFF;
-		buff[1] = s & 0xFF;
-		write(buff, 2);
+		*((short16 *) &memory[loc]) = s;
 	}
 
 	void
-	MemoryProvider::writeInt(unsigned long int i)
+	MemoryProvider::writeInt(pointer loc, int32 i)
 	{
-		buff[0] = (i >> 24) & 0xFF;
-		buff[1] = (i >> 16) & 0xFF;
-		buff[2] = (i >> 8) & 0xFF;
-		buff[3] = i & 0xFF;
-		write(buff, 4);
+		*((int32 *) &memory[loc]) = i;
 	}
 
 	void
-	MemoryProvider::writeLong(unsigned long long l)
+	MemoryProvider::writeLong(pointer loc, long64 l)
 	{
-		buff[0] = (l >> 56) & 0xFF;
-		buff[1] = (l >> 48) & 0xFF;
-		buff[2] = (l >> 40) & 0xFF;
-		buff[3] = (l >> 32) & 0xFF;
-		buff[4] = (l >> 24) & 0xFF;
-		buff[5] = (l >> 16) & 0xFF;
-		buff[6] = (l >> 8) & 0xFF;
-		buff[7] = l & 0xFF;
-		write(buff, 8);
+		*((long64 *) &memory[loc]) = l;
 	}
 
 	void
-	MemoryProvider::writeUTF8(std::string s)
+	MemoryProvider::writeUTF8(pointer loc, std::string s)
 	{
-		writeShort((unsigned short int) s.length());
+		writeShort(loc, (unsigned short int) s.length());
 		byte * bytes = (byte*) s.data();
-		write(bytes, (unsigned long int) s.length());
+		write(loc + 2, bytes, (unsigned long int) s.length());
 	}
 
 	void
-	MemoryProvider::writeUTF16(std::string s)
+	MemoryProvider::writeUTF16(pointer loc, std::string s)
 	{
-		writeUTF8(s);
+		writeUTF8(loc, s);
 	}
 
 	pointer
 	MemoryProvider::createVariable(pointer size)
 	{
-		pointer b4 = getPointer();
-		while (getPointer() < getLength())
+		pointer location = 0;
+		while (location < getLength())
 		{
-			printf("Scanning variable %d\n", getPointer());
-			pointer l = readLong();
+			printf("Scanning variable %d\n", location);
+			pointer l = readLong(location);
+			location += 8;
 			if (l & 0xC000000000000000 != 0)
 			{
 				printf("Variable is used...\n");
-				seek(getPointer() + (l & 0x3FFFFFFFFFFFFFFF));
+				location += (l & 0x3FFFFFFFFFFFFFFF);
 				continue;
 			}
 			l &= 0x3FFFFFFFFFFFFFFF;
 			printf("Variable isn't used\n");
-			pointer p = getPointer();
-			if (size < l)
+			if (size <= l - 8)
+				writeLong(location + l, (long64) (l - size - 8));
+			else
 			{
-				seek(p + size);
-				writeLong(l - size - 8);
+				location += l;
+				continue;
 			}
-			seek(p - 8);
-			writeLong(((pointer) gc << 62) | size);
-			return p - 8;
+			writeLong(location - 8, ((pointer) gc << 62) | size);
+			return location - 8;
 		}
-		seek(b4);
 		return getLength();
 	}
 
 	void
 	MemoryProvider::deleteVariable(pointer p)
 	{
-		pointer b4 = getPointer();
-		seek(p);
-		unsigned long long int length = readLong() & 0x3FFFFFFFFFFFFFFF;
-		seek(p);
-		writeLong(length);
-		seek(b4);
+		pointer length = readLong(p) & 0x3FFFFFFFFFFFFFFF;
+		writeLong(p, length);
+	}
+
+	bool
+	MemoryProvider::searchInVariable(pointer context, const char * name, Pointer & var)
+	{
+		pointer length = readLong(context) & 0x3FFFFFFFFFFFFFFF;
+		pointer supertype = readLong(context + 8) & 0x3FFFFFFFFFFFFFFF;
+
+		char c;
+		unsigned long int parsed = 24;
+
+		a: while (parsed < length)
+		{
+			int i = 0;
+			while ((c = memory[context + parsed++]) != 0)
+			{
+				if (name[i] == 0)
+					a: continue;
+				if (c != name[i++])
+					a: continue;
+			}
+			if (name[i] != 0)
+				a: continue;
+			var.mask = memory[context + parsed++];
+			if ((var.mask & 3) != 2)
+				a: continue;
+			pointer p = readLong(context + parsed);
+			parsed += 8;
+			var.type = (byte) (p >> 59 & 0xFF);
+			var.loc = p & 0x7FFFFFFFFFFFFFF;
+			var.name = name;
+			return true;
+		}
+
+		if (supertype != context)
+			return searchInVariable(supertype, name, var);
+		else
+		{
+			var.type = 1;
+			return false;
+		}
+	}
+
+	bool
+	MemoryProvider::searchForVariable(pointer context, const char * name, Pointer & var)
+	{
+		pointer parent = readLong(context + 16) & 0x7FFFFFFFFFFFFFFF;
+
+		if (searchInVariable(context, name, var))
+			return true;
+		else if (parent != context)
+			return searchForVariable(parent, name, var);
+		else
+			return false;
 	}
 
 	void
@@ -162,10 +256,10 @@ namespace jason
 		gc += 0x40;
 		if (gc == 0)
 			gc = 0x40;
-		seek(loc);
-		while (getPointer() < getLength())
+		while (loc < getLength())
 		{
-			unsigned long long l = readLong();
+			long64 l = readLong(loc);
+			loc += 8;
 			//GC
 		}
 	}
@@ -173,8 +267,6 @@ namespace jason
 	void
 	MemoryProvider::GC()
 	{
-		pointer p = getPointer();
 		doGC(0);
-		seek(p);
 	}
 }

@@ -9,47 +9,76 @@
 #define MEMORYPROVIDER_H_
 
 typedef unsigned char byte;
-typedef unsigned long long int pointer;
-typedef bool boolean;
+
+typedef int8_t byte8;
+typedef int16_t short16;
+typedef int32_t int32;
+typedef int64_t long64;
+
+typedef float float32;
+typedef double double64;
+
+typedef uint64_t pointer;
 
 #include <string>
 
 namespace jason
 {
 
+	struct Pointer
+	{
+			char * name; //TODO implement hash algorithm
+			byte * mask;
+			byte * type;
+			pointer * loc;
+	};
+
 	class MemoryProvider
 	{
 		public:
-			MemoryProvider(){gc = 1;};
-			virtual ~MemoryProvider();
-			virtual void seek(pointer p) = 0;
-			virtual pointer getPointer() = 0;
-			virtual pointer getLength() = 0;
-			virtual boolean expand(pointer newSize) = 0;
-			virtual unsigned long read(byte * buff, unsigned long off, unsigned long len) = 0;
-			virtual unsigned long write(byte * buff, unsigned long off, unsigned long len) = 0;
-			unsigned long read(byte * buff, unsigned long len);
-			unsigned long write(byte * buff, unsigned long len);
-			byte read();
-			void write(byte b);
-			unsigned short readShort();
-			void writeShort(unsigned short s);
-			unsigned long int readInt();
-			void writeInt(unsigned long int i);
-			unsigned long long readLong();
-			void writeLong(unsigned long long l);
-			std::string readUTF8();
-			void writeUTF8(std::string str);
-			std::string readUTF16();
-			void writeUTF16(std::string str);
+			MemoryProvider(pointer size);
+			~MemoryProvider();
+
+			pointer getLength();
+			bool expand(pointer newSize);
+
+			unsigned long read(pointer loc, byte * buff, unsigned long off, unsigned long len);
+			unsigned long write(pointer loc, byte * buff, unsigned long off, unsigned long len);
+			unsigned long read(pointer loc, byte * buff, unsigned long len);
+			unsigned long write(pointer loc, byte * buff, unsigned long len);
+
+			byte8 read(pointer loc);
+			void write(pointer loc, byte8 b);
+
+			short16 readShort(pointer loc);
+			void writeShort(pointer loc, short16 s);
+
+			int32 readInt(pointer loc);
+			void writeInt(pointer loc, int32 i);
+
+			long64 readLong(pointer loc);
+			void writeLong(pointer loc, long64 l);
+
+			std::string readUTF8(pointer loc);
+			void writeUTF8(pointer loc, std::string str);
+
+			std::string readUTF16(pointer loc);
+			void writeUTF16(pointer loc, std::string str);
 
 			pointer createVariable(pointer size);
 			void deleteVariable(pointer p);
+
+			bool searchInVariable(pointer context, const char * c, Pointer & var);
+			bool searchForVariable(pointer obj, const char * c, Pointer & var);
+
 			void GC();
+
+			byte * memory;
+			pointer length;
 		private:
-			byte gc;
+			byte gc = 0;
 			void doGC(pointer loc);
-			byte buff[8];
+			byte * reserved;
 	};
 
 }
